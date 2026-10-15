@@ -1,0 +1,76 @@
+package ar.nahuel.bitacora
+
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ar.nahuel.bitacora.ui.BitacoraRoot
+import ar.nahuel.bitacora.ui.MainViewModel
+import ar.nahuel.bitacora.ui.RootActions
+import ar.nahuel.bitacora.ui.theme.BitacoraTheme
+
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: MainViewModel by viewModels()
+
+    private val permissionLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted -> viewModel.onPermissionsResult(granted) }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        val actions = RootActions(
+            selectTab = viewModel::selectTab,
+            retry = viewModel::refresh,
+            requestPermissions = { permissionLauncher.launch(viewModel.permissionsToRequest) },
+            installHealthConnect = ::openHealthConnectListing,
+            openHealthConnect = ::openHealthConnectSettings,
+            openPrivacy = { startActivity(Intent(this, PrivacyActivity::class.java)) },
+            signIn = viewModel::signIn,
+            signOut = viewModel::signOut,
+            sync = viewModel::syncNow,
+        )
+        setContent {
+            BitacoraTheme {
+                val state = viewModel.state.collectAsStateWithLifecycle()
+                BitacoraRoot(state.value, actions)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refresh()
+    }
+
+    private fun openHealthConnectSettings() {
+        try {
+            startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            openHealthConnectListing()
+        }
+    }
+
+    private fun openHealthConnectListing() {
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$HEALTH_CONNECT_PACKAGE"))
+        try {
+            startActivity(market)
+        } catch (e: ActivityNotFoundException) {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$HEALTH_CONNECT_PACKAGE")),
+            )
+        }
+    }
+
+    private companion object {
+        const val HEALTH_CONNECT_PACKAGE = "com.google.android.apps.healthdata"
+    }
+}

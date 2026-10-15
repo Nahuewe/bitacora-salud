@@ -1,0 +1,140 @@
+package ar.nahuel.bitacora.domain
+
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class RecommendationEngineTest {
+
+    private val zone = ZoneId.of("America/Argentina/Catamarca")
+    private val today = LocalDate.of(2026, 10, 15)
+    private val engine = RecommendationEngine()
+
+    private fun at(date: LocalDate, hour: Int, minute: Int = 0): Instant =
+        date.atTime(LocalTime.of(hour, minute)).atZone(zone).toInstant()
+
+    private fun walk(date: LocalDate, minutes: Long, hr: Long? = 120, kind: ExerciseKind = ExerciseKind.WALKING) =
+        ExerciseSession(
+            id = "s-$date-$minutes-$kind",
+            start = at(date, 18),
+            end = at(date, 18).plusSeconds(minutes * 60),
+            type = 79,
+            kind = kind,
+            title = null,
+            distanceMeters = null,
+            avgHeartRate = hr,
+            maxHeartRate = null,
+            kilocalories = null,
+            sourceApp = "com.sec.android.app.shealth",
+        )
+
+    private fun night(wake: LocalDate, asleepMinutes: Long, wakeHour: Int = 7, hr: Long? = 70): SleepSession {
+        val end = at(wake, wakeHour)
+        return SleepSession("n-$wake", end.minusSeconds(asleepMinutes * 60), end, 60, 80, asleepMinutes - 140, 0, hr)
+    }
+
+    private fun snapshot(
+        days: List<DayActivity> = emptyList(),
+        sessions: List<ExerciseSession> = emptyList(),
+        sleeps: List<SleepSession> = emptyList(),
+        weights: List<WeightEntry> = emptyList(),
+    ) = HealthSnapshot(zone, days, sessions, sleeps, weights)
+
+    private fun List<Recommendation>.byId(id: String) = firstOrNull { it.id == id }
+
+    @Test
+    fun flagsStepFloorWhenFourOrMoreDaysAreUnder() {
+        val days = (1L..7L).map { offset ->
+            DayActivity(today.minusDays(offset), if (offset <= 4) 2_000 else 12_000, null, null)
+        }
+        val rec = engine.evaluate(snapshot(days = days), today).byId("floor")
+        assertEquals(Severity.ATTENTION, rec?.severity)
+    }
+
+    @Test
+    fun praisesAFullWeekOverTheFloor() {
+        val days = (1L..7L).map { DayActivity(today.minusDays(it), 8_000, null, null) }
+        assertEquals(Severity.GOOD, engine.evaluate(snapshot(days = days), today).byId("floor")?.severity)
+    }
+
+    @Test
+    fun alertsOnSteepLoadRamp() {
+        val baseline = (7L..34L step 7).map { walk(today.minusDays(it), 100) }
+        val current = (0L..3L).map { walk(today.minusDays(it), 80) }
+        val rec = engine.evaluate(snapshot(sessions = baseline + current), today).byId("ramp")
+        assertEquals(Severity.ALERT, rec?.severity)
+    }
+
+    @Test
+    fun doesNotFlagStableLoad() {
+        val sessions = (0L..34L).map { walk(today.minusDays(it), 30) }
+        assertNull(engine.evaluate(snapshot(sessions = sessions), today).byId("ramp"))
+    }
+
+    @Test
+    fun asksForStrengthWhenNoneInTwoWeeks() {
+        val rec = engine.evaluate(snapshot(sessions = listOf(walk(today, 60))), today).byId("strength")
+        assertEquals(Severity.ATTENTION, rec?.severity)
+    }
+
+    @Test
+    fun strengthTargetMetSilencesRule() {
+        val sessions = listOf(
+            walk(today.minusDays(1), 40, kind = ExerciseKind.STRENGTH),
+            walk(today.minusDays(4), 40, kind = ExerciseKind.STRENGTH),
+        )
+        assertNull(engine.evaluate(snapshot(sessions = sessions), today).byId("strength"))
+    }
+
+    @Test
+    fun suggestsIntensityWhenAllSessionsAreEasy() {
+        val rec = engine.evaluate(snapshot(sessions = listOf(walk(today, 60, hr = 115))), today).byId("intensity")
+        assertEquals(Severity.INFO, rec?.severity)
+    }
+
+    @Test
+    fun flagsShortSleep() {
+        val sleeps = (0L..9L).map { night(today.minusDays(it), 330) }
+        assertEquals(Severity.ALERT, engine.evaluate(snapshot(sleeps = sleeps), today).byId("sleep")?.severity)
+    }
+
+    @Test
+    fun flagsIrregularWakeTime() {
+        val sleeps = (0L..9L).map { night(today.minusDays(it), 450, wakeHour = if (it % 2 == 0L) 6 else 10) }
+        assertTrue(engine.evaluate(snapshot(sleeps = sleeps), today).byId("wake") != null)
+    }
+
+    @Test
+    fun flagsRisingNightHeartRate() {
+        val baseline = (8L..40L).map { night(today.minusDays(it), 450, hr = 68) }
+        val recent = (0L..5L).map { night(today.minusDays(it), 450, hr = 76) }
+        val rec = engine.evaluate(snapshot(sleeps = baseline + recent), today).byId("night-hr")
+        assertEquals(Severity.ATTENTION, rec?.severity)
+    }
+
+    @Test
+    fun remindsToWeighInWhenStale() {
+        val weights = listOf(WeightEntry("w1", at(today.minusDays(90), 8), 115.0))
+        assertTrue(engine.evaluate(snapshot(weights = weights), today).byId("weight") != null)
+    }
+
+    @Test
+    fun ordersBySeverity() {
+        val sleeps = (0L..9L).map { night(today.minusDays(it), 330) }
+        val result = engine.evaluate(snapshot(sleeps = sleeps, sessions = listOf(walk(today, 30))), today)
+        assertEquals(result.sortedBy { it.severity.ordinal }, result)
+    }
+
+    @Test
+    fun dashboardFillsMissingDaysWithZero() {
+        val dashboard = DashboardBuilder.build(snapshot(days = listOf(DayActivity(today, 5_000, null, null))), today)
+        assertEquals(14, dashboard.days.size)
+        assertEquals(false, dashboard.days[1].hasData)
+        assertEquals(5_000L, dashboard.days[0].steps)
+    }
+}
