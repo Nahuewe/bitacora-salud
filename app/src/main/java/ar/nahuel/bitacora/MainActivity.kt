@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
             selectTab = viewModel::selectTab,
             retry = { viewModel.refresh(force = true) },
             clearCrash = viewModel::clearCrash,
+            toggleRoutine = viewModel::toggleRoutine,
             requestPermissions = { permissionLauncher.launch(viewModel.permissionsToRequest) },
             installHealthConnect = ::openHealthConnectListing,
             openHealthConnect = ::openHealthConnectSettings,

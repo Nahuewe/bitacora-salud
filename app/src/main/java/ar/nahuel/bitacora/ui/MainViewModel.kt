@@ -11,6 +11,9 @@ import ar.nahuel.bitacora.domain.Recommendation
 import ar.nahuel.bitacora.domain.Trends
 import ar.nahuel.bitacora.domain.TrendsBuilder
 import ar.nahuel.bitacora.CrashReport
+import ar.nahuel.bitacora.domain.HealthSnapshot
+import ar.nahuel.bitacora.domain.StrengthProgram
+import ar.nahuel.bitacora.routine.RoutineEntry
 import kotlin.coroutines.cancellation.CancellationException
 import ar.nahuel.bitacora.health.HealthAccess
 import ar.nahuel.bitacora.health.HealthConnectAvailability
@@ -26,7 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class Tab { SHEET, TRENDS, LOG, SETTINGS }
+enum class Tab { SHEET, TRENDS, ROUTINE, LOG, SETTINGS }
 
 sealed interface AccessState {
     data object Checking : AccessState
@@ -67,6 +70,12 @@ data class UiState(
     val backgroundGranted: Boolean = false,
     val historyGranted: Boolean = false,
     val crash: CrashReport? = null,
+    val routine: RoutineUi = RoutineUi(),
+)
+
+data class RoutineUi(
+    val week: Int = 1,
+    val entries: List<RoutineEntry> = emptyList(),
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -78,11 +87,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val permissionsToRequest: Set<String> get() = graph.health.requestablePermissions()
 
     private var lastLoadedAt = 0L
+    private var lastSnapshot: HealthSnapshot? = null
 
     init {
         refreshAccount()
         _state.update { it.copy(crash = graph.crashLog.last()) }
+        refreshRoutine()
         refresh(force = true)
+    }
+
+    fun toggleRoutine(routineId: String) {
+        graph.routineLog.toggle(LocalDate.now(), routineId)
+        refreshRoutine()
+        val snapshot = lastSnapshot ?: return
+        val today = LocalDate.now()
+        _state.update { state ->
+            val content = state.content
+            if (content is ContentState.Loaded) {
+                state.copy(content = content.copy(notes = graph.engine.evaluate(snapshot, today, loggedStrengthDays())))
+            } else {
+                state
+            }
+        }
+    }
+
+    private fun loggedStrengthDays(): List<LocalDate> = graph.routineLog.entries().map { it.date }
+
+    private fun refreshRoutine() {
+        val today = LocalDate.now()
+        val start = graph.routineLog.startDate(today)
+        _state.update {
+            it.copy(routine = RoutineUi(StrengthProgram.weekNumber(start, today), graph.routineLog.entries()))
+        }
     }
 
     fun clearCrash() {
@@ -132,6 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             val content = try {
                 val snapshot = graph.health.snapshot(today.minusDays(DISPLAY_DAYS), today, zone)
+                lastSnapshot = snapshot
                 val hasAnything = snapshot.days.isNotEmpty() || snapshot.sessions.isNotEmpty() || snapshot.sleeps.isNotEmpty()
                 if (!hasAnything) {
                     ContentState.Empty
@@ -139,7 +176,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     lastLoadedAt = System.currentTimeMillis()
                     ContentState.Loaded(
                         dashboard = DashboardBuilder.build(snapshot, today),
-                        notes = graph.engine.evaluate(snapshot, today),
+                        notes = graph.engine.evaluate(snapshot, today, loggedStrengthDays()),
                         trends = TrendsBuilder.build(snapshot, today),
                     )
                 }

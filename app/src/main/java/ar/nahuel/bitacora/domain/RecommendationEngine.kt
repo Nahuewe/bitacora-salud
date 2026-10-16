@@ -41,10 +41,14 @@ data class Thresholds(
 
 class RecommendationEngine(private val t: Thresholds = Thresholds()) {
 
-    fun evaluate(snapshot: HealthSnapshot, today: LocalDate): List<Recommendation> = listOfNotNull(
+    fun evaluate(
+        snapshot: HealthSnapshot,
+        today: LocalDate,
+        loggedStrengthDays: List<LocalDate> = emptyList(),
+    ): List<Recommendation> = listOfNotNull(
         loadRamp(snapshot, today),
         stepFloor(snapshot, today),
-        strength(snapshot, today),
+        strength(snapshot, today, loggedStrengthDays),
         intensity(snapshot, today),
         sleepDuration(snapshot, today),
         sleepSchedule(snapshot, today),
@@ -102,23 +106,23 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
         )
     }
 
-    private fun strength(s: HealthSnapshot, today: LocalDate): Recommendation? {
-        val strength = s.sessions.filter { it.kind == ExerciseKind.STRENGTH }
+    private fun strength(s: HealthSnapshot, today: LocalDate, logged: List<LocalDate>): Recommendation? {
+        val strengthDays = (s.sessions.filter { it.kind == ExerciseKind.STRENGTH }.map { s.localDate(it.start) } + logged).distinct()
         val windowStart = today.minusDays(t.strengthWindowDays - 1)
-        val recent = strength.filter { s.localDate(it.start) >= windowStart }
-        val thisWeek = strength.count { s.localDate(it.start) >= today.minusDays(6) }
+        val recent = strengthDays.filter { it >= windowStart && it <= today }
+        val thisWeek = strengthDays.count { it >= today.minusDays(6) && it <= today }
         return when {
             recent.isEmpty() -> Recommendation(
                 id = "strength",
                 severity = Severity.ATTENTION,
                 title = "Sumá fuerza dos veces por semana",
-                detail = "No hay sesiones de fuerza en los últimos ${t.strengthWindowDays} días. Con 30 a 40 minutos alcanza: sentadilla a un banco, remo, press, peso muerto rumano y plancha. Es lo que más cambia la composición corporal y protege las articulaciones.",
+                detail = "No hay sesiones de fuerza en los últimos ${t.strengthWindowDays} días. En la pestaña Rutina tenés las dos sesiones de 35 minutos con la técnica de cada ejercicio. Es lo que más cambia la composición corporal y protege las articulaciones.",
             )
             thisWeek < t.strengthWeeklyTarget -> Recommendation(
                 id = "strength",
                 severity = Severity.INFO,
                 title = "Falta una sesión de fuerza esta semana",
-                detail = "Llevás $thisWeek de ${t.strengthWeeklyTarget}. Registrala en Samsung Health como entrenamiento de fuerza para que cuente acá.",
+                detail = "Llevás $thisWeek de ${t.strengthWeeklyTarget}. Cuando la termines, marcala como hecha en la pestaña Rutina.",
             )
             else -> null
         }

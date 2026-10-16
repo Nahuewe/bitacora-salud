@@ -23,6 +23,7 @@ import ar.nahuel.bitacora.ui.screens.LogScreen
 import ar.nahuel.bitacora.ui.screens.SettingsScreen
 import ar.nahuel.bitacora.ui.screens.SheetScreen
 import ar.nahuel.bitacora.ui.screens.TrendsScreen
+import ar.nahuel.bitacora.ui.screens.RoutineScreen
 import ar.nahuel.bitacora.ui.theme.LocalInk
 import ar.nahuel.bitacora.ui.theme.Type
 
@@ -30,6 +31,7 @@ class RootActions(
     val selectTab: (Tab) -> Unit,
     val retry: () -> Unit,
     val clearCrash: () -> Unit,
+    val toggleRoutine: (String) -> Unit,
     val requestPermissions: () -> Unit,
     val installHealthConnect: () -> Unit,
     val openHealthConnect: () -> Unit,
@@ -71,6 +73,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
         when (state.tab) {
             Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, body)
             Tab.TRENDS -> TrendsScreen(state.content, body)
+            Tab.ROUTINE -> RoutineScreen(state.routine, state.today, actions.toggleRoutine, body)
             Tab.LOG -> LogScreen(state.content, body)
             Tab.SETTINGS -> SettingsScreen(
                 account = state.account,
@@ -94,7 +97,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
 @Composable
 private fun TabStrip(selected: Tab, onSelect: (Tab) -> Unit) {
     val ink = LocalInk.current
-    val labels = listOf(Tab.SHEET to "Hoja", Tab.TRENDS to "Tendencias", Tab.LOG to "Registro", Tab.SETTINGS to "Ajustes")
+    val labels = listOf(Tab.SHEET to "Hoja", Tab.TRENDS to "Tendencias", Tab.ROUTINE to "Rutina", Tab.LOG to "Registro", Tab.SETTINGS to "Ajustes")
     Column(Modifier.background(ink.paper)) {
         Rule(thickness = 2.dp, strong = true)
         Row(
@@ -114,8 +117,8 @@ private fun TabStrip(selected: Tab, onSelect: (Tab) -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        label.uppercase(),
-                        style = Type.sectionLabel.copy(fontSize = 11.sp, letterSpacing = 0.6.sp),
+                        label,
+                        style = Type.sectionLabel.copy(fontSize = 12.sp, letterSpacing = 0.sp),
                         color = if (isSelected) ink.ink else ink.inkSoft,
                         maxLines = 1,
                         softWrap = false,

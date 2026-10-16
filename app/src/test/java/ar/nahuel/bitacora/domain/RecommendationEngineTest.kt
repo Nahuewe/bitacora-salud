@@ -196,3 +196,34 @@ class TrendsBuilderTest {
         assertEquals(13L * 60, window.wakeOffsetMinutes)
     }
 }
+
+class StrengthProgramTest {
+    @Test
+    fun weekNumberStartsAtOne() {
+        val start = LocalDate.of(2026, 10, 16)
+        assertEquals(1, StrengthProgram.weekNumber(start, start))
+        assertEquals(2, StrengthProgram.weekNumber(start, start.plusDays(7)))
+    }
+
+    @Test
+    fun thirdStrengthDayFromWeekSeven() {
+        assertEquals(2, StrengthProgram.weekPlan(6).count { it.kind == DayKind.STRENGTH })
+        assertEquals(3, StrengthProgram.weekPlan(7).count { it.kind == DayKind.STRENGTH })
+    }
+
+    @Test
+    fun everyExerciseHasTwoFramesAndCues() {
+        StrengthProgram.routines.flatMap { it.exercises }.forEach {
+            assertEquals(it.id, 2, it.frames.size)
+            assertTrue(it.id, it.cues.isNotEmpty() && it.avoid.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun loggedRoutineSilencesStrengthNote() {
+        val today = LocalDate.of(2026, 10, 15)
+        val snapshot = HealthSnapshot.empty(ZoneId.of("America/Argentina/Catamarca"))
+        val logged = listOf(today, today.minusDays(3))
+        assertNull(RecommendationEngine().evaluate(snapshot, today, logged).firstOrNull { it.id == "strength" })
+    }
+}

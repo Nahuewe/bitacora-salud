@@ -7,6 +7,7 @@ import ar.nahuel.bitacora.health.HealthConnectSource
 import ar.nahuel.bitacora.remote.AuthRepository
 import ar.nahuel.bitacora.remote.SessionStore
 import ar.nahuel.bitacora.remote.SupabaseApi
+import ar.nahuel.bitacora.routine.RoutineLog
 import ar.nahuel.bitacora.sync.SyncService
 import ar.nahuel.bitacora.sync.SyncState
 import ar.nahuel.bitacora.sync.SyncWorker
@@ -25,6 +26,7 @@ class AppGraph(context: Context) {
     val sync = SyncService(health, auth, api, syncState, json)
     val engine = RecommendationEngine()
     val crashLog = CrashLog(context)
+    val routineLog = RoutineLog(context)
 }
 
 class BitacoraApplication : Application() {
