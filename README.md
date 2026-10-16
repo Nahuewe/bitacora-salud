@@ -51,8 +51,8 @@ Guardá `bitacora.jks` y sus contraseñas fuera del repo (gestor de contraseñas
 
 ## 4. Compilar e instalar
 
-- Cada push a `main` compila y deja el APK en **Actions → (último run) → Artifacts**.
-- Para una versión descargable desde el celular: `git tag v1.0.0 && git push --tags` → queda en **Releases**.
+- Cada push a `main` compila, corre los tests y, si el keystore está configurado, publica el APK en **Releases** como `v1.0.<número de build>`.
+- También se puede publicar una versión con nombre propio: `git tag v1.1.0 && git push --tags`.
 - En el celular: abrí el APK y permití "instalar apps desconocidas" para el navegador o el gestor de archivos.
 
 ## 5. Primer uso
