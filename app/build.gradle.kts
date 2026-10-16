@@ -15,7 +15,7 @@ val localProperties = Properties().apply {
 
 fun setting(name: String): String = System.getenv(name) ?: localProperties.getProperty(name) ?: ""
 
-val supabaseUrl = setting("SUPABASE_URL").trimEnd('/')
+val supabaseUrl = setting("SUPABASE_URL").trim().trimEnd('/').removeSuffix("/rest/v1")
 val supabaseKey = setting("SUPABASE_ANON_KEY")
 require(supabaseUrl.isEmpty() || supabaseUrl.startsWith("https://")) { "SUPABASE_URL debe usar https" }
 
