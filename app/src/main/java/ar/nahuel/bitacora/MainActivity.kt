@@ -29,7 +29,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val actions = RootActions(
             selectTab = viewModel::selectTab,
-            retry = viewModel::refresh,
+            retry = { viewModel.refresh(force = true) },
+            clearCrash = viewModel::clearCrash,
             requestPermissions = { permissionLauncher.launch(viewModel.permissionsToRequest) },
             installHealthConnect = ::openHealthConnectListing,
             openHealthConnect = ::openHealthConnectSettings,

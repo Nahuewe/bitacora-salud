@@ -83,8 +83,9 @@ class SyncService(
 
         return try {
             val days = health.dailyActivity(dailyFrom, today).map { it.toRow() }
-            val sessions = health.exerciseSessions(windowStart, windowEnd).map { it.toRow() }
-            val sleeps = health.sleepSessions(windowStart, windowEnd).map { it.toRow() }
+            val heart = health.heartRateSamples(windowStart, windowEnd)
+            val sessions = health.exerciseSessions(windowStart, windowEnd, heart).map { it.toRow() }
+            val sleeps = health.sleepSessions(windowStart, windowEnd, heart).map { it.toRow() }
             val weights = health.weights(windowStart, windowEnd).mapNotNull { it.toRow() }
 
             push("daily_activity", "user_id,day", days, DailyRow.serializer(), session)

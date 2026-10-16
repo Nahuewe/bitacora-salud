@@ -72,7 +72,7 @@ object DashboardBuilder {
             )
         }
 
-        val nights = snapshot.sleeps
+        val nights = snapshot.mainSleeps
             .sortedByDescending { it.end }
             .take(nightCount)
             .map {

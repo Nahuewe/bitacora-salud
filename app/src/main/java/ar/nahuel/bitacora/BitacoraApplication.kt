@@ -24,6 +24,7 @@ class AppGraph(context: Context) {
     val syncState = SyncState(context)
     val sync = SyncService(health, auth, api, syncState, json)
     val engine = RecommendationEngine()
+    val crashLog = CrashLog(context)
 }
 
 class BitacoraApplication : Application() {
@@ -33,6 +34,7 @@ class BitacoraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         graph = AppGraph(this)
+        graph.crashLog.install()
         SyncWorker.schedule(this)
     }
 }

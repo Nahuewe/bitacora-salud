@@ -28,6 +28,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
 enum class HealthConnectAvailability { AVAILABLE, NEEDS_UPDATE, UNAVAILABLE }
@@ -48,9 +50,44 @@ object HealthAccess {
     )
 }
 
+data class HeartStats(val average: Long, val max: Long)
+
+class HeartSamples(private val times: LongArray, private val bpm: LongArray) {
+
+    fun stats(from: Instant, to: Instant): HeartStats? {
+        val start = from.toEpochMilli()
+        val end = to.toEpochMilli()
+        var index = lowerBound(start)
+        var sum = 0L
+        var count = 0
+        var max = 0L
+        while (index < times.size && times[index] < end) {
+            val value = bpm[index]
+            sum += value
+            count++
+            if (value > max) max = value
+            index++
+        }
+        return if (count == 0) null else HeartStats(Math.round(sum.toDouble() / count), max)
+    }
+
+    private fun lowerBound(value: Long): Int {
+        var low = 0
+        var high = times.size
+        while (low < high) {
+            val mid = (low + high) ushr 1
+            if (times[mid] < value) low = mid + 1 else high = mid
+        }
+        return low
+    }
+}
+
+private data class SessionTotals(val distanceMeters: Double?, val kilocalories: Double?)
+
 class HealthConnectSource(private val context: Context) {
 
     private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
+    private val totalsCache = ConcurrentHashMap<String, Pair<Instant, SessionTotals>>()
 
     fun availability(): HealthConnectAvailability = when (HealthConnectClient.getSdkStatus(context)) {
         HealthConnectClient.SDK_AVAILABLE -> HealthConnectAvailability.AVAILABLE
@@ -76,12 +113,23 @@ class HealthConnectSource(private val context: Context) {
     suspend fun snapshot(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): HealthSnapshot {
         val start = from.atStartOfDay(zone).toInstant()
         val end = toInclusive.plusDays(1).atStartOfDay(zone).toInstant()
+        val heart = heartRateSamples(start, end)
         return HealthSnapshot(
             zone = zone,
             days = dailyActivity(from, toInclusive),
-            sessions = exerciseSessions(start, end),
-            sleeps = sleepSessions(start, end),
+            sessions = exerciseSessions(start, end, heart),
+            sleeps = sleepSessions(start, end, heart),
             weights = weights(start.minus(Duration.ofDays(365)), end),
+        )
+    }
+
+    suspend fun heartRateSamples(start: Instant, end: Instant): HeartSamples {
+        val samples = readAll(HeartRateRecord::class, TimeRangeFilter.between(start, end))
+            .flatMap { record -> record.samples }
+            .sortedBy { it.time }
+        return HeartSamples(
+            times = LongArray(samples.size) { samples[it].time.toEpochMilli() },
+            bpm = LongArray(samples.size) { samples[it].beatsPerMinute },
         )
     }
 
@@ -112,19 +160,11 @@ class HealthConnectSource(private val context: Context) {
             }
     }
 
-    suspend fun exerciseSessions(start: Instant, end: Instant): List<ExerciseSession> =
-        readAll(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end)).map { record ->
-            val totals = client.aggregate(
-                AggregateRequest(
-                    metrics = setOf(
-                        HeartRateRecord.BPM_AVG,
-                        HeartRateRecord.BPM_MAX,
-                        DistanceRecord.DISTANCE_TOTAL,
-                        TotalCaloriesBurnedRecord.ENERGY_TOTAL,
-                    ),
-                    timeRangeFilter = TimeRangeFilter.between(record.startTime, record.endTime),
-                ),
-            )
+    suspend fun exerciseSessions(start: Instant, end: Instant, heart: HeartSamples? = null): List<ExerciseSession> {
+        val samples = heart ?: heartRateSamples(start, end)
+        return readAll(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end)).map { record ->
+            val totals = sessionTotals(record)
+            val hr = samples.stats(record.startTime, record.endTime)
             ExerciseSession(
                 id = record.metadata.id,
                 start = record.startTime,
@@ -132,26 +172,49 @@ class HealthConnectSource(private val context: Context) {
                 type = record.exerciseType,
                 kind = kindOf(record.exerciseType),
                 title = record.title,
-                distanceMeters = totals[DistanceRecord.DISTANCE_TOTAL]?.inMeters,
-                avgHeartRate = totals[HeartRateRecord.BPM_AVG],
-                maxHeartRate = totals[HeartRateRecord.BPM_MAX],
-                kilocalories = totals[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,
+                distanceMeters = totals.distanceMeters,
+                avgHeartRate = hr?.average,
+                maxHeartRate = hr?.max,
+                kilocalories = totals.kilocalories,
                 sourceApp = record.metadata.dataOrigin.packageName,
             )
         }
+    }
 
-    suspend fun sleepSessions(start: Instant, end: Instant): List<SleepSession> =
-        readAll(SleepSessionRecord::class, TimeRangeFilter.between(start, end)).map { record ->
+    private suspend fun sessionTotals(record: ExerciseSessionRecord): SessionTotals {
+        val key = record.metadata.id
+        val version = record.metadata.lastModifiedTime
+        totalsCache[key]?.takeIf { it.first == version }?.let { return it.second }
+        val totals = try {
+            val result = client.aggregate(
+                AggregateRequest(
+                    metrics = setOf(DistanceRecord.DISTANCE_TOTAL, TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(record.startTime, record.endTime),
+                ),
+            )
+            SessionTotals(
+                distanceMeters = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters,
+                kilocalories = result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SecurityException) {
+            throw e
+        } catch (e: Exception) {
+            return SessionTotals(null, null)
+        }
+        totalsCache[key] = version to totals
+        return totals
+    }
+
+    suspend fun sleepSessions(start: Instant, end: Instant, heart: HeartSamples? = null): List<SleepSession> {
+        val samples = heart ?: heartRateSamples(start, end)
+        return readAll(SleepSessionRecord::class, TimeRangeFilter.between(start, end)).map { record ->
             fun minutesOf(stage: Int): Long = record.stages
                 .filter { it.stage == stage }
                 .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
 
-            val heartRate = client.aggregate(
-                AggregateRequest(
-                    metrics = setOf(HeartRateRecord.BPM_AVG),
-                    timeRangeFilter = TimeRangeFilter.between(record.startTime, record.endTime),
-                ),
-            )[HeartRateRecord.BPM_AVG]
+            val heartRate = samples.stats(record.startTime, record.endTime)?.average
 
             SleepSession(
                 id = record.metadata.id,
@@ -164,6 +227,7 @@ class HealthConnectSource(private val context: Context) {
                 avgHeartRate = heartRate,
             )
         }
+    }
 
     suspend fun weights(start: Instant, end: Instant): List<WeightEntry> =
         readAll(WeightRecord::class, TimeRangeFilter.between(start, end)).map {

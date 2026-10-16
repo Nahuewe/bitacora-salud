@@ -138,3 +138,43 @@ class RecommendationEngineTest {
         assertEquals(5_000L, dashboard.days[0].steps)
     }
 }
+
+class TrendsBuilderTest {
+    private val zone = ZoneId.of("America/Argentina/Catamarca")
+    private val today = LocalDate.of(2026, 10, 15)
+
+    private fun sleep(wake: LocalDate, minutes: Long, hr: Long = 70): SleepSession {
+        val end = wake.atTime(7, 0).atZone(zone).toInstant()
+        return SleepSession("n-$wake-$minutes", end.minusSeconds(minutes * 60), end, 60, 90, minutes - 150, 0, hr)
+    }
+
+    @Test
+    fun napsAreExcludedFromMainSleeps() {
+        val nap = SleepSession("nap", today.atTime(15, 0).atZone(zone).toInstant(), today.atTime(15, 40).atZone(zone).toInstant(), 0, 0, 40, 0, 80)
+        val snapshot = HealthSnapshot(zone, emptyList(), emptyList(), listOf(sleep(today, 420), nap), emptyList())
+        assertEquals(1, snapshot.mainSleeps.size)
+    }
+
+    @Test
+    fun streakCountsConsecutiveDaysOverTarget() {
+        val days = (0L..5L).map { DayActivity(today.minusDays(it), if (it <= 3) 9_000 else 2_000, null, null) }
+        val trends = TrendsBuilder.build(HealthSnapshot(zone, days, emptyList(), emptyList(), emptyList()), today)
+        assertEquals(4, trends.streakDays)
+    }
+
+    @Test
+    fun weeklySeriesHasRequestedLength() {
+        val trends = TrendsBuilder.build(HealthSnapshot.empty(zone), today)
+        assertEquals(26, trends.weeklySteps.size)
+        assertEquals(26, trends.weeklyLoad.size)
+        assertEquals(7, trends.weekdayProfile.size)
+    }
+
+    @Test
+    fun sleepWindowOffsetsAreRelativeToSixPm() {
+        val trends = TrendsBuilder.build(HealthSnapshot(zone, emptyList(), emptyList(), listOf(sleep(today, 480)), emptyList()), today)
+        val window = trends.sleepWindows.single()
+        assertEquals(23L * 60 - 18 * 60, window.bedOffsetMinutes)
+        assertEquals(13L * 60, window.wakeOffsetMinutes)
+    }
+}

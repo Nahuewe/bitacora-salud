@@ -8,6 +8,10 @@ import ar.nahuel.bitacora.BitacoraApplication
 import ar.nahuel.bitacora.domain.Dashboard
 import ar.nahuel.bitacora.domain.DashboardBuilder
 import ar.nahuel.bitacora.domain.Recommendation
+import ar.nahuel.bitacora.domain.Trends
+import ar.nahuel.bitacora.domain.TrendsBuilder
+import ar.nahuel.bitacora.CrashReport
+import kotlin.coroutines.cancellation.CancellationException
 import ar.nahuel.bitacora.health.HealthAccess
 import ar.nahuel.bitacora.health.HealthConnectAvailability
 import ar.nahuel.bitacora.remote.ApiError
@@ -22,7 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class Tab { SHEET, LOG, SETTINGS }
+enum class Tab { SHEET, TRENDS, LOG, SETTINGS }
 
 sealed interface AccessState {
     data object Checking : AccessState
@@ -34,7 +38,7 @@ sealed interface AccessState {
 sealed interface ContentState {
     data object Loading : ContentState
     data object Empty : ContentState
-    data class Loaded(val dashboard: Dashboard, val notes: List<Recommendation>) : ContentState
+    data class Loaded(val dashboard: Dashboard, val notes: List<Recommendation>, val trends: Trends) : ContentState
     data class Error(val message: String) : ContentState
 }
 
@@ -62,6 +66,7 @@ data class UiState(
     val sync: SyncUi = SyncUi(),
     val backgroundGranted: Boolean = false,
     val historyGranted: Boolean = false,
+    val crash: CrashReport? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -72,14 +77,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val permissionsToRequest: Set<String> get() = graph.health.requestablePermissions()
 
+    private var lastLoadedAt = 0L
+
     init {
         refreshAccount()
-        refresh()
+        _state.update { it.copy(crash = graph.crashLog.last()) }
+        refresh(force = true)
+    }
+
+    fun clearCrash() {
+        graph.crashLog.clear()
+        _state.update { it.copy(crash = null) }
     }
 
     fun selectTab(tab: Tab) = _state.update { it.copy(tab = tab) }
 
-    fun refresh() {
+    fun refresh(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && _state.value.content is ContentState.Loaded && now - lastLoadedAt < RELOAD_INTERVAL_MS) return
         viewModelScope.launch {
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
@@ -121,9 +136,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (!hasAnything) {
                     ContentState.Empty
                 } else {
+                    lastLoadedAt = System.currentTimeMillis()
                     ContentState.Loaded(
                         dashboard = DashboardBuilder.build(snapshot, today),
                         notes = graph.engine.evaluate(snapshot, today),
+                        trends = TrendsBuilder.build(snapshot, today),
                     )
                 }
             } catch (e: SecurityException) {
@@ -131,15 +148,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             } catch (e: RemoteException) {
                 ContentState.Error("Health Connect no respondió. Probá de nuevo en unos segundos.")
-            } catch (e: IllegalStateException) {
-                ContentState.Error("No se pudieron leer los datos de Health Connect.")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ContentState.Error("No se pudieron leer los datos de Health Connect (${e.javaClass.simpleName}).")
             }
             _state.update { it.copy(content = content) }
         }
     }
 
     fun onPermissionsResult(granted: Set<String>) {
-        if (granted.containsAll(HealthAccess.core)) refresh()
+        if (granted.containsAll(HealthAccess.core)) refresh(force = true)
         else _state.update { it.copy(access = AccessState.PermissionsNeeded) }
     }
 
@@ -221,6 +240,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
-        const val DISPLAY_DAYS = 60L
+        const val DISPLAY_DAYS = 182L
+        const val RELOAD_INTERVAL_MS = 5 * 60 * 1000L
     }
 }

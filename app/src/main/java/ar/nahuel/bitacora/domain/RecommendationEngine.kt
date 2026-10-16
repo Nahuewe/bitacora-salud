@@ -139,7 +139,7 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
     }
 
     private fun recentNights(s: HealthSnapshot, today: LocalDate, days: Long): List<SleepSession> =
-        s.sleeps.filter {
+        s.mainSleeps.filter {
             val wake = s.localDate(it.end)
             wake <= today && wake > today.minusDays(days)
         }
@@ -173,7 +173,7 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
     }
 
     private fun nightHeartRate(s: HealthSnapshot, today: LocalDate): Recommendation? {
-        val withHr = s.sleeps.filter { it.avgHeartRate != null }
+        val withHr = s.mainSleeps.filter { it.avgHeartRate != null }
         val recent = withHr.filter { s.localDate(it.end) > today.minusDays(7) && s.localDate(it.end) <= today }
         val baseline = withHr.filter {
             val d = s.localDate(it.end)

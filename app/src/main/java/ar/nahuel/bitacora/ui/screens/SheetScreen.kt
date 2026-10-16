@@ -83,26 +83,26 @@ private fun LazyListScope.loadedSheet(dashboard: Dashboard, notes: List<Recommen
     if (notes.isEmpty()) {
         item { Text("Sin observaciones esta semana.", style = Type.body, color = LocalInk.current.inkSoft, modifier = Modifier.padding(vertical = 14.dp)) }
     } else {
-        itemsIndexed(notes, key = { _, note -> note.id }) { index, note -> NoteRow(index + 1, note) }
+        itemsIndexed(notes, key = { _, note -> "note-${note.id}" }) { index, note -> NoteRow(index + 1, note) }
     }
 
     item {
         SectionHeader("Pasos · 14 días", "piso ${Format.int(thresholds.stepTarget)}")
         Spacer(Modifier.height(6.dp))
     }
-    items(dashboard.days, key = { it.date.toString() }) { StepRow(it, dashboard.stepScaleMax) }
+    items(dashboard.days, key = { "day-${it.date}" }) { StepRow(it, dashboard.stepScaleMax) }
 
     item {
         SectionHeader("Carga semanal", "minutos de ejercicio")
         Spacer(Modifier.height(6.dp))
     }
-    items(dashboard.weeks, key = { it.weekStart.toString() }) { WeekLoadRow(it, dashboard.weekScaleMax) }
+    items(dashboard.weeks, key = { "week-${it.weekStart}" }) { WeekLoadRow(it, dashboard.weekScaleMax) }
 
     item { SectionHeader("Sueño · últimas noches", "dormido · acostarse → despertar") }
     if (dashboard.nights.isEmpty()) {
         item { Text("Sin registros de sueño en Health Connect.", style = Type.body, color = LocalInk.current.inkSoft, modifier = Modifier.padding(vertical = 14.dp)) }
     } else {
-        items(dashboard.nights, key = { it.wakeDate.toString() + it.wake }) { NightLine(it) }
+        items(dashboard.nights, key = { "night-${it.wakeDate}-${it.wake}" }) { NightLine(it) }
     }
 }
 

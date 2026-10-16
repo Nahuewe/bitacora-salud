@@ -26,6 +26,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.selection.SelectionContainer
+import ar.nahuel.bitacora.CrashReport
 import ar.nahuel.bitacora.ui.AccountState
 import ar.nahuel.bitacora.ui.SyncUi
 import ar.nahuel.bitacora.ui.components.KeyValueRow
@@ -46,6 +48,8 @@ fun SettingsScreen(
     sync: SyncUi,
     backgroundGranted: Boolean,
     historyGranted: Boolean,
+    crash: CrashReport?,
+    onClearCrash: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onSignOut: () -> Unit,
     onSync: () -> Unit,
@@ -118,6 +122,19 @@ fun SettingsScreen(
             LedgerButton("Abrir Health Connect", onOpenHealthConnect)
             Spacer(Modifier.width(12.dp))
             LedgerButton("Privacidad", onOpenPrivacy)
+        }
+        if (crash != null) {
+            SectionHeader("Último cierre inesperado", crash.at.atZone(ZoneId.systemDefault()).format(stamp))
+            Text(
+                "Mantené apretado el texto para copiarlo y pasárselo a quien mantiene la app.",
+                style = Type.small,
+                color = ink.inkSoft,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            SelectionContainer {
+                Text(crash.summary, style = Type.figureSmall, color = ink.signal, modifier = Modifier.padding(vertical = 10.dp))
+            }
+            LedgerButton("Borrar registro", onClearCrash)
         }
         Spacer(Modifier.height(40.dp))
     }

@@ -66,7 +66,18 @@ data class HealthSnapshot(
 ) {
     fun localDate(instant: Instant): LocalDate = instant.atZone(zone).toLocalDate()
 
+    val mainSleeps: List<SleepSession> by lazy {
+        sleeps
+            .filter { Duration.between(it.start, it.end).toMinutes() >= MAIN_SLEEP_MINUTES }
+            .groupBy { localDate(it.end) }
+            .values
+            .map { night -> night.maxBy { Duration.between(it.start, it.end) } }
+            .sortedBy { it.end }
+    }
+
     companion object {
+        const val MAIN_SLEEP_MINUTES = 180L
+
         fun empty(zone: ZoneId) = HealthSnapshot(zone, emptyList(), emptyList(), emptyList(), emptyList())
     }
 }

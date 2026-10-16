@@ -16,17 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ar.nahuel.bitacora.ui.components.Rule
 import ar.nahuel.bitacora.ui.screens.AccessScreen
 import ar.nahuel.bitacora.ui.screens.LogScreen
 import ar.nahuel.bitacora.ui.screens.SettingsScreen
 import ar.nahuel.bitacora.ui.screens.SheetScreen
+import ar.nahuel.bitacora.ui.screens.TrendsScreen
 import ar.nahuel.bitacora.ui.theme.LocalInk
 import ar.nahuel.bitacora.ui.theme.Type
 
 class RootActions(
     val selectTab: (Tab) -> Unit,
     val retry: () -> Unit,
+    val clearCrash: () -> Unit,
     val requestPermissions: () -> Unit,
     val installHealthConnect: () -> Unit,
     val openHealthConnect: () -> Unit,
@@ -67,12 +70,15 @@ private fun MainLayout(state: UiState, actions: RootActions) {
             .fillMaxWidth()
         when (state.tab) {
             Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, body)
+            Tab.TRENDS -> TrendsScreen(state.content, body)
             Tab.LOG -> LogScreen(state.content, body)
             Tab.SETTINGS -> SettingsScreen(
                 account = state.account,
                 sync = state.sync,
                 backgroundGranted = state.backgroundGranted,
                 historyGranted = state.historyGranted,
+                crash = state.crash,
+                onClearCrash = actions.clearCrash,
                 onSignIn = actions.signIn,
                 onSignOut = actions.signOut,
                 onSync = actions.sync,
@@ -88,7 +94,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
 @Composable
 private fun TabStrip(selected: Tab, onSelect: (Tab) -> Unit) {
     val ink = LocalInk.current
-    val labels = listOf(Tab.SHEET to "Hoja", Tab.LOG to "Registro", Tab.SETTINGS to "Ajustes")
+    val labels = listOf(Tab.SHEET to "Hoja", Tab.TRENDS to "Tendencias", Tab.LOG to "Registro", Tab.SETTINGS to "Ajustes")
     Column(Modifier.background(ink.paper)) {
         Rule(thickness = 2.dp, strong = true)
         Row(
@@ -109,8 +115,10 @@ private fun TabStrip(selected: Tab, onSelect: (Tab) -> Unit) {
                 ) {
                     Text(
                         label.uppercase(),
-                        style = Type.sectionLabel,
+                        style = Type.sectionLabel.copy(fontSize = 11.sp, letterSpacing = 0.6.sp),
                         color = if (isSelected) ink.ink else ink.inkSoft,
+                        maxLines = 1,
+                        softWrap = false,
                     )
                     if (isSelected) {
                         Box(
