@@ -8,6 +8,8 @@ import ar.nahuel.bitacora.remote.AuthRepository
 import ar.nahuel.bitacora.remote.SessionStore
 import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineLog
+import ar.nahuel.bitacora.routes.RouteImporter
+import ar.nahuel.bitacora.routes.RouteStore
 import ar.nahuel.bitacora.sync.SyncService
 import ar.nahuel.bitacora.sync.SyncState
 import ar.nahuel.bitacora.sync.SyncWorker
@@ -23,10 +25,12 @@ class AppGraph(context: Context) {
     val api = SupabaseApi(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY, json)
     val auth = AuthRepository(api, SessionStore(context, json))
     val syncState = SyncState(context)
-    val sync = SyncService(health, auth, api, syncState, json)
     val engine = RecommendationEngine()
     val crashLog = CrashLog(context)
     val routineLog = RoutineLog(context)
+    val routeStore = RouteStore(context, json)
+    val routeImporter = RouteImporter(context, json)
+    val sync = SyncService(health, auth, api, syncState, json, routineLog)
 }
 
 class BitacoraApplication : Application() {

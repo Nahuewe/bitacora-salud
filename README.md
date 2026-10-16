@@ -24,6 +24,14 @@ Samsung Health ──► Health Connect ──► App (Kotlin + Compose)
 4. **Authentication → Users → Add user → Create new user**: tu email y una contraseña larga, con **Auto Confirm User** marcado.
 5. **Project Settings → API**: copiá la **Project URL** y la **anon / publishable key**. La `service_role` / secret key **no** va en la app ni en GitHub.
 
+### Migraciones posteriores
+
+Cada archivo nuevo en `supabase/migrations/` se ejecuta una vez en el SQL Editor, en orden:
+
+- `20261016000000_strength_logs.sql`: sesiones de fuerza marcadas en la pestaña Rutina.
+
+Los recorridos GPS **no** se sincronizan: quedan solo en el teléfono porque revelan domicilio y lugar de trabajo.
+
 ## 2. Clave de firma (una sola vez)
 
 Sin una clave fija, cada build sale firmado distinto y Android no deja actualizar la app instalada.

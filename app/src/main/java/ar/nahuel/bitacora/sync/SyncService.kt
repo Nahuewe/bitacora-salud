@@ -8,6 +8,8 @@ import ar.nahuel.bitacora.remote.ApiError
 import ar.nahuel.bitacora.remote.AuthRepository
 import ar.nahuel.bitacora.remote.AuthSession
 import ar.nahuel.bitacora.remote.SupabaseApi
+import ar.nahuel.bitacora.routine.RoutineEntry
+import ar.nahuel.bitacora.routine.RoutineLog
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -15,6 +17,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -36,6 +39,7 @@ class SyncService(
     private val api: SupabaseApi,
     private val state: SyncState,
     private val json: Json,
+    private val routines: RoutineLog,
 ) {
     private val lock = Mutex()
 
@@ -92,12 +96,14 @@ class SyncService(
             push("exercise_sessions", "user_id,hc_id", sessions, ExerciseRow.serializer(), session)
             push("sleep_sessions", "user_id,hc_id", sleeps, SleepRow.serializer(), session)
             push("weight_entries", "user_id,hc_id", weights, WeightRow.serializer(), session)
+            val strength = syncStrength(session)
 
             val counts = mapOf(
                 "daily_activity" to days.size,
                 "exercise_sessions" to sessions.size,
                 "sleep_sessions" to sleeps.size,
                 "weight_entries" to weights.size,
+                "strength_logs" to strength,
             )
             val finishedAt = Instant.now()
             record(trigger, startedAt, finishedAt, "success", counts, null, session)
@@ -116,6 +122,25 @@ class SyncService(
         } catch (e: android.os.RemoteException) {
             fail("health_remote", true)
         }
+    }
+
+    private suspend fun syncStrength(session: AuthSession): Int = try {
+        pushAndPullStrength(session)
+    } catch (e: ApiError.Rejected) {
+        STRENGTH_TABLE_MISSING
+    } catch (e: SerializationException) {
+        STRENGTH_TABLE_MISSING
+    }
+
+    private suspend fun pushAndPullStrength(session: AuthSession): Int {
+        val local = routines.entries()
+        push("strength_logs", "user_id,day,routine_id", local.map { StrengthRow(it.date.toString(), it.routineId) }, StrengthRow.serializer(), session)
+        val deleted = routines.pendingDeletes()
+        deleted.forEach { api.delete("strength_logs", mapOf("day" to it.date.toString(), "routine_id" to it.routineId), session) }
+        routines.confirmDeleted(deleted)
+        val remote = json.decodeFromString(ListSerializer(StrengthRow.serializer()), api.select("strength_logs", "day,routine_id", session))
+        routines.mergeRemote(remote.mapNotNull { RoutineEntry.parse("${it.day}${RoutineEntry.SEPARATOR}${it.routineId}") })
+        return local.size
     }
 
     private suspend fun <T> push(
@@ -156,11 +181,12 @@ class SyncService(
         return SyncOutcome.Failed(code, retryable)
     }
 
-    private companion object {
-        const val INITIAL_HISTORY_DAYS = 365L
-        const val RECENT_DAYS = 29L
-        const val OVERLAP_DAYS = 3L
-        const val DAILY_RECOMPUTE_DAYS = 10L
-        const val CHUNK_SIZE = 500
+    companion object {
+        const val STRENGTH_TABLE_MISSING = -1
+        private const val INITIAL_HISTORY_DAYS = 365L
+        private const val RECENT_DAYS = 29L
+        private const val OVERLAP_DAYS = 3L
+        private const val DAILY_RECOMPUTE_DAYS = 10L
+        private const val CHUNK_SIZE = 500
     }
 }

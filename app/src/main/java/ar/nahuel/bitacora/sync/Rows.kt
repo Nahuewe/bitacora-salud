@@ -104,3 +104,9 @@ fun SleepSession.toRow() = SleepRow(
 
 fun WeightEntry.toRow(): WeightRow? =
     if (kilograms in 20.0..400.0) WeightRow(id, time.toString(), round(kilograms * 100) / 100) else null
+
+@Serializable
+data class StrengthRow(
+    @SerialName("day") val day: String,
+    @SerialName("routine_id") val routineId: String,
+)

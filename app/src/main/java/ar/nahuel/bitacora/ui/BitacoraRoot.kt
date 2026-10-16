@@ -23,6 +23,7 @@ import ar.nahuel.bitacora.ui.screens.LogScreen
 import ar.nahuel.bitacora.ui.screens.SettingsScreen
 import ar.nahuel.bitacora.ui.screens.SheetScreen
 import ar.nahuel.bitacora.ui.screens.TrendsScreen
+import ar.nahuel.bitacora.ui.map.MapScreen
 import ar.nahuel.bitacora.ui.screens.RoutineScreen
 import ar.nahuel.bitacora.ui.theme.LocalInk
 import ar.nahuel.bitacora.ui.theme.Type
@@ -32,6 +33,12 @@ class RootActions(
     val retry: () -> Unit,
     val clearCrash: () -> Unit,
     val toggleRoutine: (String) -> Unit,
+    val openMap: () -> Unit,
+    val closeMap: () -> Unit,
+    val importRoutes: () -> Unit,
+    val requestRoutes: () -> Unit,
+    val clearRoutes: () -> Unit,
+    val retryMap: () -> Unit,
     val requestPermissions: () -> Unit,
     val installHealthConnect: () -> Unit,
     val openHealthConnect: () -> Unit,
@@ -58,6 +65,15 @@ fun BitacoraRoot(state: UiState, actions: RootActions) {
                 onOpenPrivacy = actions.openPrivacy,
                 modifier = Modifier.fillMaxSize(),
             )
+        } else if (state.showMap) {
+            MapScreen(
+                state = state.map,
+                onBack = actions.closeMap,
+                onImport = actions.importRoutes,
+                onRequestRoutes = actions.requestRoutes,
+                onClearImported = actions.clearRoutes,
+                onRetry = actions.retryMap,
+            )
         } else {
             MainLayout(state, actions)
         }
@@ -74,7 +90,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
             Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, body)
             Tab.TRENDS -> TrendsScreen(state.content, body)
             Tab.ROUTINE -> RoutineScreen(state.routine, state.today, actions.toggleRoutine, body)
-            Tab.LOG -> LogScreen(state.content, body)
+            Tab.LOG -> LogScreen(state.content, actions.openMap, body)
             Tab.SETTINGS -> SettingsScreen(
                 account = state.account,
                 sync = state.sync,

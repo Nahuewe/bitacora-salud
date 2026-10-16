@@ -6,6 +6,7 @@ import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
@@ -20,6 +21,10 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import ar.nahuel.bitacora.domain.DayActivity
 import ar.nahuel.bitacora.domain.ExerciseKind
 import ar.nahuel.bitacora.domain.ExerciseSession
+import ar.nahuel.bitacora.domain.Geo
+import ar.nahuel.bitacora.domain.Route
+import ar.nahuel.bitacora.domain.RoutePoint
+import ar.nahuel.bitacora.domain.RouteSource
 import ar.nahuel.bitacora.domain.HealthSnapshot
 import ar.nahuel.bitacora.domain.SleepSession
 import ar.nahuel.bitacora.domain.WeightEntry
@@ -37,6 +42,7 @@ enum class HealthConnectAvailability { AVAILABLE, NEEDS_UPDATE, UNAVAILABLE }
 object HealthAccess {
     const val HISTORY = "android.permission.health.READ_HEALTH_DATA_HISTORY"
     const val BACKGROUND = "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+    const val ROUTES = "android.permission.health.READ_EXERCISE_ROUTES"
 
     val core: Set<String> = setOf(
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
@@ -71,6 +77,14 @@ class HeartSamples(private val times: LongArray, private val bpm: LongArray) {
         return if (count == 0) null else HeartStats(Math.round(sum.toDouble() / count), max)
     }
 
+    fun at(timeMs: Long, toleranceMs: Long = 90_000L): Long? {
+        if (times.isEmpty()) return null
+        val index = lowerBound(timeMs)
+        val candidates = listOf(index - 1, index).filter { it in times.indices }
+        val best = candidates.minByOrNull { kotlin.math.abs(times[it] - timeMs) } ?: return null
+        return if (kotlin.math.abs(times[best] - timeMs) <= toleranceMs) bpm[best] else null
+    }
+
     private fun lowerBound(value: Long): Int {
         var low = 0
         var high = times.size
@@ -81,6 +95,8 @@ class HeartSamples(private val times: LongArray, private val bpm: LongArray) {
         return low
     }
 }
+
+data class RouteRead(val routes: List<Route>, val consentRequired: Int)
 
 private data class SessionTotals(val distanceMeters: Double?, val kilocalories: Double?)
 
@@ -101,6 +117,7 @@ class HealthConnectSource(private val context: Context) {
         val extra = mutableSetOf<String>()
         if (featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY)) extra += HealthAccess.HISTORY
         if (featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)) extra += HealthAccess.BACKGROUND
+        extra += HealthAccess.ROUTES
         return HealthAccess.core + extra
     }
 
@@ -227,6 +244,33 @@ class HealthConnectSource(private val context: Context) {
                 avgHeartRate = heartRate,
             )
         }
+    }
+
+    suspend fun routes(sessions: List<ExerciseSession>): RouteRead {
+        val routes = mutableListOf<Route>()
+        var consentRequired = 0
+        for (session in sessions) {
+            val record = try {
+                client.readRecord(ExerciseSessionRecord::class, session.id).record
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                continue
+            }
+            when (val result = record.exerciseRouteResult) {
+                is ExerciseRouteResult.Data -> {
+                    val points = result.exerciseRoute.route
+                        .filter { Geo.isValid(it.latitude, it.longitude) }
+                        .map { RoutePoint(it.time.toEpochMilli(), it.latitude, it.longitude) }
+                    if (points.size >= 5) {
+                        routes += Route(session.id, session.start, session.end, Geo.thin(points), RouteSource.HEALTH_CONNECT)
+                    }
+                }
+                is ExerciseRouteResult.ConsentRequired -> consentRequired++
+                else -> Unit
+            }
+        }
+        return RouteRead(routes, consentRequired)
     }
 
     suspend fun weights(start: Instant, end: Instant): List<WeightEntry> =

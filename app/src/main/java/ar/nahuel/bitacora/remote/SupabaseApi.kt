@@ -100,6 +100,26 @@ class SupabaseApi(
         execute(request) { }
     }
 
+    suspend fun select(table: String, columns: String, session: AuthSession): String {
+        val url = "$base/rest/v1/$table".toHttpUrl().newBuilder()
+            .addQueryParameter("select", columns)
+            .build()
+        val request = authorized(session).url(url).get().build()
+        return execute(request) { it.body?.string().orEmpty() }
+    }
+
+    suspend fun delete(table: String, filters: Map<String, String>, session: AuthSession) {
+        val builder = "$base/rest/v1/$table".toHttpUrl().newBuilder()
+        require(filters.isNotEmpty()) { "delete sin filtros" }
+        filters.forEach { (column, value) -> builder.addQueryParameter(column, "eq.$value") }
+        val request = authorized(session)
+            .url(builder.build())
+            .header("Prefer", "return=minimal")
+            .delete()
+            .build()
+        execute(request) { }
+    }
+
     private suspend fun token(grant: String, body: String, fallbackEmail: String): AuthSession {
         if (!isConfigured) throw ApiError.NotConfigured()
         val url = "$base/auth/v1/token".toHttpUrl().newBuilder()

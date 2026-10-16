@@ -30,6 +30,7 @@ import ar.nahuel.bitacora.domain.ExerciseSession
 import ar.nahuel.bitacora.domain.Format
 import ar.nahuel.bitacora.domain.Thresholds
 import ar.nahuel.bitacora.ui.ContentState
+import ar.nahuel.bitacora.ui.components.LedgerButton
 import ar.nahuel.bitacora.ui.components.Rule
 import ar.nahuel.bitacora.ui.components.SectionHeader
 import ar.nahuel.bitacora.ui.theme.LocalInk
@@ -42,7 +43,7 @@ private val intensity = Thresholds().intensityHeartRate
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
-fun LogScreen(content: ContentState, modifier: Modifier = Modifier) {
+fun LogScreen(content: ContentState, onOpenMap: () -> Unit, modifier: Modifier = Modifier) {
     val ink = LocalInk.current
     val zone = ZoneId.systemDefault()
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -52,6 +53,16 @@ fun LogScreen(content: ContentState, modifier: Modifier = Modifier) {
                 Text("REGISTRO", style = Type.masthead, color = ink.ink)
                 Spacer(Modifier.height(6.dp))
                 Rule(thickness = 3.dp, strong = true)
+                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Dónde caminás, y en qué tramos vas más rápido o te agitás más.",
+                        style = Type.small,
+                        color = ink.inkSoft,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    LedgerButton("Mapa", onOpenMap, filled = true)
+                }
+                Rule()
                 Spacer(Modifier.height(10.dp))
                 ColumnHeader()
             }

@@ -7,7 +7,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import ar.nahuel.bitacora.health.HealthAccess
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +26,14 @@ class MainActivity : ComponentActivity() {
         PermissionController.createRequestPermissionResultContract(),
     ) { granted -> viewModel.onPermissionsResult(granted) }
 
+    private val routePermissionLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { viewModel.loadMap() }
+
+    private val exportPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.importRoutes(uri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -32,6 +42,12 @@ class MainActivity : ComponentActivity() {
             retry = { viewModel.refresh(force = true) },
             clearCrash = viewModel::clearCrash,
             toggleRoutine = viewModel::toggleRoutine,
+            openMap = viewModel::openMap,
+            closeMap = viewModel::closeMap,
+            importRoutes = { exportPicker.launch(null) },
+            requestRoutes = { routePermissionLauncher.launch(HealthAccess.core + HealthAccess.ROUTES) },
+            clearRoutes = viewModel::clearImportedRoutes,
+            retryMap = { viewModel.loadMap() },
             requestPermissions = { permissionLauncher.launch(viewModel.permissionsToRequest) },
             installHealthConnect = ::openHealthConnectListing,
             openHealthConnect = ::openHealthConnectSettings,

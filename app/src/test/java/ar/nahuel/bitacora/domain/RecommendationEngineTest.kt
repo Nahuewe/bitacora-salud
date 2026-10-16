@@ -227,3 +227,49 @@ class StrengthProgramTest {
         assertNull(RecommendationEngine().evaluate(snapshot, today, logged).firstOrNull { it.id == "strength" })
     }
 }
+
+class GeoTest {
+    private fun walk(id: String, startMs: Long, metersPerSecond: Double, seconds: Int, lat0: Double = -28.47): Route {
+        val dLat = metersPerSecond / 111_320.0
+        val points = (0..seconds step 5).map { RoutePoint(startMs + it * 1000L, lat0 + dLat * it, -65.78) }
+        return Route(id, java.time.Instant.ofEpochMilli(startMs), java.time.Instant.ofEpochMilli(startMs + seconds * 1000L), points, RouteSource.SAMSUNG_EXPORT)
+    }
+
+    @Test
+    fun segmentSpeedMatchesWalkingPace() {
+        val segments = Geo.segments(walk("a", 0, 1.25, 600)) { 120L }
+        assertTrue(segments.isNotEmpty())
+        segments.forEach { assertEquals(4.5, it.speedKmh, 0.2) }
+        assertEquals(120L, segments.first().heartRate)
+    }
+
+    @Test
+    fun stopsAreNotCountedAsSlowWalking() {
+        assertTrue(Geo.segments(walk("b", 0, 0.05, 600)) { null }.isEmpty())
+    }
+
+    @Test
+    fun zonesAggregateRepeatedWalks() {
+        val tracks = listOf("a", "b").map { id ->
+            val route = walk(id, 0, 1.25, 600)
+            RouteTrack(route, Geo.segments(route) { 110L }, null)
+        }
+        val zones = Geo.zones(tracks)
+        assertTrue(zones.isNotEmpty())
+        assertTrue(zones.all { it.passes == 2 })
+    }
+
+    @Test
+    fun bucketsSplitIntoFive() {
+        val breaks = Geo.breaks((1..100).map { it.toDouble() })
+        assertEquals(4, breaks.size)
+        assertEquals(0, Geo.bucket(1.0, breaks))
+        assertEquals(4, Geo.bucket(100.0, breaks))
+    }
+
+    @Test
+    fun routineEntryRejectsUnknownRoutine() {
+        assertNull(ar.nahuel.bitacora.routine.RoutineEntry.parse("2026-10-16|Z"))
+        assertEquals("A", ar.nahuel.bitacora.routine.RoutineEntry.parse("2026-10-16|A")?.routineId)
+    }
+}
