@@ -4,7 +4,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToLong
-import kotlin.math.sqrt
 
 enum class Severity(val label: String) {
     ALERT("Alerta"),
@@ -33,6 +32,8 @@ data class Thresholds(
     val sleepTargetMinutes: Long = 420,
     val shortSleepMinutes: Long = 360,
     val wakeVariabilityMinutes: Double = 60.0,
+    val weekendShiftMinutes: Double = 90.0,
+    val sleepLatencyMinutes: Long = 15,
     val nightHeartRateRise: Double = 3.0,
     val nightHeartRateDrop: Double = 2.0,
     val weightReminderDays: Long = 30,
@@ -46,7 +47,7 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
         strength(snapshot, today),
         intensity(snapshot, today),
         sleepDuration(snapshot, today),
-        wakeRegularity(snapshot, today),
+        sleepSchedule(snapshot, today),
         nightHeartRate(snapshot, today),
         weight(snapshot, today),
     ).sortedBy { it.severity.ordinal }
@@ -158,17 +159,44 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
         )
     }
 
-    private fun wakeRegularity(s: HealthSnapshot, today: LocalDate): Recommendation? {
-        val nights = recentNights(s, today, 14)
-        if (nights.size < 5) return null
-        val wakeMinutes = nights.map { val time = it.end.atZone(s.zone).toLocalTime(); time.hour * 60.0 + time.minute }
-        val spread = standardDeviation(wakeMinutes)
-        if (spread <= t.wakeVariabilityMinutes) return null
+    private fun sleepSchedule(s: HealthSnapshot, today: LocalDate): Recommendation? {
+        val nights = recentNights(s, today, 28)
+        val workdays = nights.filter { s.localDate(it.end).dayOfWeek.value <= 5 }
+        val weekend = nights.filter { s.localDate(it.end).dayOfWeek.value >= 6 }
+        if (workdays.size < 5) return null
+        fun wakeMinutes(sleep: SleepSession): Double = sleep.end.atZone(s.zone).toLocalTime().let { it.hour * 60.0 + it.minute }
+
+        val workWakes = workdays.map(::wakeMinutes)
+        val workWake = median(workWakes)
+        val spread = quantile(workWakes, 0.75) - quantile(workWakes, 0.25)
+        if (spread > t.wakeVariabilityMinutes) {
+            return Recommendation(
+                id = "schedule",
+                severity = Severity.INFO,
+                title = "Entre semana te despertás a horas distintas",
+                detail = "En la mitad de los días hábiles tu hora de despertarte cambia más de ${spread.roundToLong()} minutos. Un horario fijo ordena el sueño y baja el pulso nocturno.",
+            )
+        }
+        if (weekend.size < 2) return null
+        val shift = median(weekend.map(::wakeMinutes)) - workWake
+        if (shift < t.weekendShiftMinutes) return null
+
+        val workSleep = median(workdays.map { it.asleepMinutes.toDouble() })
+        val lightsOut = ((workWake - t.sleepTargetMinutes - t.sleepLatencyMinutes) % MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY
+        val shortWeek = workSleep < t.sleepTargetMinutes
         return Recommendation(
-            id = "wake",
-            severity = Severity.INFO,
-            title = "Despertate siempre a la misma hora",
-            detail = "Tu hora de despertarte varía ±${spread.roundToLong()} minutos de un día a otro. Fijarla, incluso el fin de semana, ordena el sueño y baja el pulso nocturno.",
+            id = "schedule",
+            severity = if (shortWeek) Severity.ATTENTION else Severity.INFO,
+            title = "El fin de semana te levantás ${Format.hoursDecimal(shift)} más tarde",
+            detail = buildString {
+                append("Entre semana te despertás cerca de las ${clock(workWake)} y el fin de semana a las ${clock(workWake + shift)}. ")
+                if (shortWeek) {
+                    append("De lunes a viernes dormís una mediana de ${Format.hoursDecimal(workSleep)}: el fin de semana estás pagando esa deuda. ")
+                    append("Como la hora de levantarte la fija el trabajo, el ajuste va en la de acostarte: para dormir 7 h, apagá la luz a las ${clock(lightsOut)} de domingo a jueves.")
+                } else {
+                    append("Mantener la diferencia por debajo de una hora y media evita el lunes pesado.")
+                }
+            },
         )
     }
 
@@ -226,8 +254,20 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
         return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2 else sorted[mid]
     }
 
-    private fun standardDeviation(values: List<Double>): Double {
-        val mean = values.average()
-        return sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
+    private fun quantile(values: List<Double>, q: Double): Double {
+        val sorted = values.sorted()
+        val position = (sorted.size - 1) * q
+        val lower = sorted[position.toInt()]
+        val upper = sorted[minOf(sorted.size - 1, position.toInt() + 1)]
+        return lower + (upper - lower) * (position - position.toInt())
+    }
+
+    private fun clock(minutes: Double): String {
+        val total = ((minutes.roundToLong() % MINUTES_PER_DAY.toLong()) + MINUTES_PER_DAY.toLong()) % MINUTES_PER_DAY.toLong()
+        return "%02d:%02d".format(total / 60, total % 60)
+    }
+
+    private companion object {
+        const val MINUTES_PER_DAY = 1440.0
     }
 }

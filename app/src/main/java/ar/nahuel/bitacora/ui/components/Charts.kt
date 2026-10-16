@@ -243,7 +243,8 @@ fun SleepWindowChart(windows: List<SleepWindow>, description: String, modifier: 
 
         windows.forEachIndexed { i, w ->
             val rowTop = headerPx + i * rowPx
-            text(measurer, Format.shortDay(w.wakeDate), axisStyle(ink), 0f, rowTop + 4.dp.toPx())
+            val weekend = w.wakeDate.dayOfWeek.value >= 6
+            text(measurer, Format.shortDay(w.wakeDate), if (weekend) valueStyle(ink) else axisStyle(ink), 0f, rowTop + 4.dp.toPx())
             val color = when {
                 w.asleepMinutes >= 420 -> ink.ink
                 w.asleepMinutes >= 360 -> ink.barMuted

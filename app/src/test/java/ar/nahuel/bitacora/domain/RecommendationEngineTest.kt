@@ -106,7 +106,25 @@ class RecommendationEngineTest {
     @Test
     fun flagsIrregularWakeTime() {
         val sleeps = (0L..9L).map { night(today.minusDays(it), 450, wakeHour = if (it % 2 == 0L) 6 else 10) }
-        assertTrue(engine.evaluate(snapshot(sleeps = sleeps), today).byId("wake") != null)
+        assertTrue(engine.evaluate(snapshot(sleeps = sleeps), today).byId("schedule") != null)
+    }
+
+    @Test
+    fun flagsWeekendShiftWithShortWorkweekSleep() {
+        val sleeps = (0L..20L).map {
+            val wake = today.minusDays(it)
+            val weekend = wake.dayOfWeek.value >= 6
+            night(wake, if (weekend) 480 else 360, wakeHour = if (weekend) 11 else 7)
+        }
+        val rec = engine.evaluate(snapshot(sleeps = sleeps), today).byId("schedule")
+        assertEquals(Severity.ATTENTION, rec?.severity)
+        assertTrue(rec!!.detail.contains("23:45"))
+    }
+
+    @Test
+    fun steadyScheduleIsNotFlagged() {
+        val sleeps = (0L..20L).map { night(today.minusDays(it), 450, wakeHour = 7) }
+        assertNull(engine.evaluate(snapshot(sleeps = sleeps), today).byId("schedule"))
     }
 
     @Test

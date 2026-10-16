@@ -177,7 +177,7 @@ private fun LazyListScope.trends(t: Trends) {
         if (t.sleepWindows.isEmpty()) {
             Caption("Sin registros de sueño.")
         } else {
-            Caption("Cada barra va de la hora en que te dormiste a la que te despertaste. Negro: 7 h o más. Naranja: menos de 6 h.")
+            Caption("Cada barra va de la hora en que te dormiste a la que te despertaste. Negro: 7 h o más. Naranja: menos de 6 h. Sábados y domingos, con la fecha resaltada.")
             Spacer(Modifier.height(6.dp))
             SleepWindowChart(
                 windows = t.sleepWindows,
