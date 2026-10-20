@@ -14,6 +14,8 @@ import ar.nahuel.bitacora.CrashReport
 import ar.nahuel.bitacora.domain.HealthSnapshot
 import ar.nahuel.bitacora.domain.StrengthProgram
 import ar.nahuel.bitacora.routine.RoutineEntry
+import ar.nahuel.bitacora.samsung.SamsungStatus
+import ar.nahuel.bitacora.samsung.mergeSnapshot
 import ar.nahuel.bitacora.domain.ExerciseKind
 import ar.nahuel.bitacora.domain.Geo
 import ar.nahuel.bitacora.domain.Route
@@ -80,6 +82,7 @@ data class UiState(
     val backgroundGranted: Boolean = false,
     val historyGranted: Boolean = false,
     val crash: CrashReport? = null,
+    val samsung: SamsungStatus? = null,
     val routine: RoutineUi = RoutineUi(),
     val showMap: Boolean = false,
     val map: MapState = MapState.Idle,
@@ -121,6 +124,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastLoadedAt = 0L
     private var lastSnapshot: HealthSnapshot? = null
+    private var samsungRoutes: List<ar.nahuel.bitacora.domain.Route> = emptyList()
 
     init {
         refreshAccount()
@@ -155,6 +159,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun onSamsungStatus(status: SamsungStatus) {
+        _state.update { it.copy(samsung = status, map = MapState.Idle) }
+        if (status == SamsungStatus.Ready) refresh(force = true)
+    }
+
     fun clearCrash() {
         graph.crashLog.clear()
         _state.update { it.copy(crash = null) }
@@ -178,13 +187,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     (it.kind == ExerciseKind.WALKING || it.kind == ExerciseKind.RUNNING) &&
                         it.start.isAfter(java.time.Instant.now().minus(java.time.Duration.ofDays(ROUTE_DAYS)))
                 }
-                val fromHc = runCatching { graph.health.routes(walks) }.getOrNull()
+                val samsung = samsungRoutes
+                val walksWithoutSamsung = walks.filter { walk -> samsung.none { Geo.matchSession(it, listOf(walk)) != null } }
+                val fromHc = runCatching { graph.health.routes(walksWithoutSamsung) }.getOrNull()
                 val routePermission = runCatching { HealthAccess.ROUTES in graph.health.grantedPermissions() }.getOrDefault(false)
                 val imported = graph.routeStore.load()
-                val hcRoutes = fromHc?.routes.orEmpty()
+                val hcRoutes = samsung + fromHc?.routes.orEmpty()
                 val importedOnly = imported.filter { route ->
                     val session = Geo.matchSession(route, sessions)
-                    session == null || hcRoutes.none { it.id == session.id }
+                    session == null || hcRoutes.none { Geo.matchSession(it, listOf(session)) != null }
                 }
                 val routes = (hcRoutes + importedOnly).sortedBy { it.start }
                 if (routes.isEmpty()) {
@@ -204,7 +215,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val heart = graph.health.heartRateSamples(routes.first().start, routes.last().end)
                     val data = withContext(Dispatchers.Default) {
                         val tracks = routes.map { route ->
-                            RouteTrack(route, Geo.segments(route) { heart.at(it) }, Geo.matchSession(route, sessions))
+                            RouteTrack(route, Geo.segments(route) { route.heartAt(it) ?: heart.at(it) }, Geo.matchSession(route, sessions))
                         }
                         val segments = tracks.flatMap { it.segments }
                         MapData(
@@ -320,7 +331,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             val content = try {
-                val snapshot = graph.health.snapshot(today.minusDays(DISPLAY_DAYS), today, zone)
+                val hcSnapshot = graph.health.snapshot(today.minusDays(DISPLAY_DAYS), today, zone)
+                val samsungStatus = graph.samsung.status()
+                _state.update { it.copy(samsung = samsungStatus) }
+                val samsungData = if (samsungStatus == SamsungStatus.Ready) {
+                    try {
+                        graph.samsung.load(today.minusDays(DISPLAY_DAYS), today, zone)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _state.update { it.copy(samsung = SamsungStatus.Unavailable("Samsung Health no respondió (${e.javaClass.simpleName}). Uso Health Connect.")) }
+                        null
+                    }
+                } else {
+                    null
+                }
+                samsungRoutes = samsungData?.routes.orEmpty()
+                val snapshot = if (samsungData != null) mergeSnapshot(hcSnapshot, samsungData) else hcSnapshot
                 lastSnapshot = snapshot
                 val hasAnything = snapshot.days.isNotEmpty() || snapshot.sessions.isNotEmpty() || snapshot.sleeps.isNotEmpty()
                 if (!hasAnything) {

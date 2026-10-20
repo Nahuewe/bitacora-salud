@@ -299,3 +299,29 @@ class RoutinePlanTest {
         assertEquals(Severity.ATTENTION, rec.first { it.id == "strength" }.severity)
     }
 }
+
+class SamsungMergeTest {
+    private val zone = ZoneId.of("America/Argentina/Catamarca")
+    private val day = LocalDate.of(2026, 10, 20)
+
+    private fun session(id: String, minute: Long) = ExerciseSession(
+        id, day.atTime(18, 0).atZone(zone).toInstant().plusSeconds(minute * 60), day.atTime(19, 0).atZone(zone).toInstant(),
+        79, ExerciseKind.WALKING, null, null, null, null, null, "x",
+    )
+
+    @Test
+    fun samsungStepsReplaceHealthConnect() {
+        val hc = HealthSnapshot(zone, listOf(DayActivity(day, 6_019, null, null, sources = mapOf("phone" to 6_019L))), emptyList(), emptyList(), emptyList())
+        val sh = ar.nahuel.bitacora.samsung.SamsungActivity(listOf(DayActivity(day, 11_231, 5_000.0, null, activeMinutes = 115, sources = mapOf("x.sdk" to 11_231L))), emptyList(), emptyList())
+        val merged = ar.nahuel.bitacora.samsung.mergeSnapshot(hc, sh)
+        assertEquals(11_231L, merged.days.single().steps)
+        assertEquals(115L, merged.days.single().activeMinutes)
+        assertEquals(6_019L, merged.days.single().healthConnectSteps)
+    }
+
+    @Test
+    fun matchingSessionsKeepHealthConnectId() {
+        val merged = ar.nahuel.bitacora.samsung.mergeSessions(listOf(session("sh:1:0", 1)), listOf(session("hc-1", 0)))
+        assertEquals(listOf("hc-1"), merged.map { it.id })
+    }
+}

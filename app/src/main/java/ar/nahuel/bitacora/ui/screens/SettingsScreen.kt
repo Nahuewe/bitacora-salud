@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.selection.SelectionContainer
 import ar.nahuel.bitacora.CrashReport
+import ar.nahuel.bitacora.samsung.SamsungStatus
 import ar.nahuel.bitacora.ui.AccountState
 import ar.nahuel.bitacora.ui.SyncUi
 import ar.nahuel.bitacora.ui.components.KeyValueRow
@@ -50,6 +51,8 @@ fun SettingsScreen(
     historyGranted: Boolean,
     crash: CrashReport?,
     onClearCrash: () -> Unit,
+    samsung: SamsungStatus?,
+    onConnectSamsung: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onSignOut: () -> Unit,
     onSync: () -> Unit,
@@ -83,6 +86,23 @@ fun SettingsScreen(
                 LedgerButton("Cerrar sesión", onSignOut)
             }
             else -> SignInForm(account, onSignIn)
+        }
+
+        SectionHeader("Samsung Health · reloj")
+        Text(
+            when (samsung) {
+                SamsungStatus.Ready -> "Conectado. Los pasos, el tiempo activo y las caminatas con su recorrido salen directo de Samsung Health, con lo que mide el reloj."
+                SamsungStatus.NeedsPermission -> "Falta autorizar la lectura. Sin esto, la app usa Health Connect, que puede no tener todos los pasos del reloj."
+                is SamsungStatus.NeedsResolution -> samsung.message
+                is SamsungStatus.Unavailable -> samsung.message + " Mientras tanto uso Health Connect."
+                null -> "Revisando…"
+            },
+            style = Type.body,
+            color = if (samsung == SamsungStatus.Ready) ink.good else ink.inkSoft,
+            modifier = Modifier.padding(vertical = 14.dp),
+        )
+        if (samsung != SamsungStatus.Ready) {
+            LedgerButton("Conectar Samsung Health", onConnectSamsung, filled = true)
         }
 
         SectionHeader("Sincronización")

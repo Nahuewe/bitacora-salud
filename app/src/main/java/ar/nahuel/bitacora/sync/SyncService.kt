@@ -10,10 +10,14 @@ import ar.nahuel.bitacora.remote.AuthSession
 import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineEntry
 import ar.nahuel.bitacora.routine.RoutineLog
+import ar.nahuel.bitacora.samsung.SamsungHealthSource
+import ar.nahuel.bitacora.samsung.SamsungStatus
+import ar.nahuel.bitacora.samsung.mergeSessions
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
@@ -40,6 +44,7 @@ class SyncService(
     private val state: SyncState,
     private val json: Json,
     private val routines: RoutineLog,
+    private val samsung: SamsungHealthSource,
 ) {
     private val lock = Mutex()
 
@@ -86,9 +91,31 @@ class SyncService(
         val windowEnd = today.plusDays(1).atStartOfDay(zone).toInstant()
 
         return try {
-            val days = health.dailyActivity(dailyFrom, today).map { it.toRow() }
+            val hcDays = health.dailyActivity(dailyFrom, today)
             val heart = health.heartRateSamples(windowStart, windowEnd)
-            val sessions = health.exerciseSessions(windowStart, windowEnd, heart).map { it.toRow() }
+            val hcSessions = health.exerciseSessions(windowStart, windowEnd, heart)
+            val samsungData = if (samsung.status() == SamsungStatus.Ready) {
+                try {
+                    samsung.load(dailyFrom, today, zone)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                null
+            }
+            val days = if (samsungData != null) {
+                val bySamsung = samsungData.days.associateBy { it.date }
+                (hcDays.filter { it.date !in bySamsung } + samsungData.days).map { it.toRow() }
+            } else {
+                hcDays.map { it.toRow() }
+            }
+            val sessions = (if (samsungData != null) {
+                mergeSessions(samsungData.sessions.filter { !it.start.isBefore(windowStart) }, hcSessions)
+            } else {
+                hcSessions
+            }).map { it.toRow() }
             val sleeps = health.sleepSessions(windowStart, windowEnd, heart).map { it.toRow() }
             val weights = health.weights(windowStart, windowEnd).mapNotNull { it.toRow() }
 

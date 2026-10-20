@@ -36,6 +36,7 @@ import ar.nahuel.bitacora.domain.Recommendation
 import ar.nahuel.bitacora.domain.Severity
 import ar.nahuel.bitacora.domain.Thresholds
 import ar.nahuel.bitacora.domain.WeekRow
+import ar.nahuel.bitacora.samsung.SamsungStatus
 import ar.nahuel.bitacora.ui.ContentState
 import ar.nahuel.bitacora.ui.components.LedgerButton
 import ar.nahuel.bitacora.ui.components.Rule
@@ -49,9 +50,19 @@ private val thresholds = Thresholds()
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
-fun SheetScreen(content: ContentState, today: LocalDate, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun SheetScreen(
+    content: ContentState,
+    today: LocalDate,
+    onRetry: () -> Unit,
+    samsung: SamsungStatus?,
+    onConnectSamsung: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
         item { Masthead(today) }
+        if (samsung != null && samsung != SamsungStatus.Ready) {
+            item(key = "samsung") { SamsungNote(samsung, onConnectSamsung) }
+        }
         when (content) {
             ContentState.Loading -> loadingRows()
             ContentState.Empty -> item { EmptySheet() }
@@ -59,6 +70,21 @@ fun SheetScreen(content: ContentState, today: LocalDate, onRetry: () -> Unit, mo
             is ContentState.Loaded -> loadedSheet(content.dashboard, content.notes)
         }
         item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun SamsungNote(status: SamsungStatus, onConnect: () -> Unit) {
+    val ink = LocalInk.current
+    val text = when (status) {
+        SamsungStatus.NeedsPermission -> "Conectá Samsung Health para leer los pasos y caminatas del reloj."
+        is SamsungStatus.NeedsResolution -> status.message
+        is SamsungStatus.Unavailable -> status.message
+        SamsungStatus.Ready -> ""
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = Type.small, color = ink.signal, modifier = Modifier.weight(1f).padding(end = 12.dp))
+        if (status !is SamsungStatus.Unavailable) LedgerButton("Conectar", onConnect)
     }
 }
 
@@ -123,7 +149,11 @@ private fun Summary(dashboard: Dashboard) {
         }
     }
     Text(
-        "Activo esta semana: ${Format.int(week?.minutes ?: 0L)} min. Se estima con los minutos en los que diste más de 60 pasos; Samsung Health no comparte su \"tiempo de actividad\" con Health Connect, así que puede diferir unos minutos.",
+        if (today?.sources?.keys?.any { it.endsWith(".sdk") } == true) {
+            "Activo esta semana: ${Format.int(week?.minutes ?: 0L)} min, según el tiempo de actividad de Samsung Health."
+        } else {
+            "Activo esta semana: ${Format.int(week?.minutes ?: 0L)} min. Se estima con los minutos en los que diste más de 60 pasos; conectá Samsung Health para usar su tiempo de actividad exacto."
+        },
         style = Type.small,
         color = ink.inkSoft,
         modifier = Modifier.padding(top = 8.dp),
@@ -135,6 +165,7 @@ private fun Summary(dashboard: Dashboard) {
 @Composable
 private fun SourcesNote(day: ar.nahuel.bitacora.domain.DayActivity) {
     val ink = LocalInk.current
+    if (day.sources.keys.any { it.endsWith(".sdk") }) return
     val others = day.sources.filter { it.value != day.steps }
     val hc = day.healthConnectSteps
     if (others.isEmpty() && (hc == null || hc == day.steps)) return
@@ -148,7 +179,8 @@ private fun SourcesNote(day: ar.nahuel.bitacora.domain.DayActivity) {
 }
 
 private fun sourceName(packageName: String): String = when {
-    packageName.contains("shealth") -> "Samsung Health"
+    packageName.endsWith(".sdk") -> "Samsung Health (reloj)"
+    packageName.contains("shealth") -> "Samsung Health vía Health Connect"
     packageName.contains("google.android.apps.fitness") -> "Google Fit"
     packageName.contains("healthdata") || packageName == "android" -> "Teléfono"
     else -> packageName.substringAfterLast('.')

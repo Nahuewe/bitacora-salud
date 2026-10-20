@@ -14,7 +14,9 @@ data class RoutePoint(val timeMs: Long, val lat: Double, val lon: Double) {
     val position: LatLon get() = LatLon(lat, lon)
 }
 
-enum class RouteSource { HEALTH_CONNECT, SAMSUNG_EXPORT }
+enum class RouteSource { HEALTH_CONNECT, SAMSUNG_EXPORT, SAMSUNG_SDK }
+
+data class HeartPoint(val timeMs: Long, val bpm: Long)
 
 data class Route(
     val id: String,
@@ -22,7 +24,20 @@ data class Route(
     val end: Instant,
     val points: List<RoutePoint>,
     val source: RouteSource,
+    val heartLog: List<HeartPoint> = emptyList(),
 ) {
+    fun heartAt(timeMs: Long, toleranceMs: Long = 60_000L): Long? {
+        if (heartLog.isEmpty()) return null
+        var low = 0
+        var high = heartLog.size
+        while (low < high) {
+            val mid = (low + high) ushr 1
+            if (heartLog[mid].timeMs < timeMs) low = mid + 1 else high = mid
+        }
+        val best = listOf(low - 1, low).filter { it in heartLog.indices }.minByOrNull { kotlin.math.abs(heartLog[it].timeMs - timeMs) } ?: return null
+        return heartLog[best].takeIf { kotlin.math.abs(it.timeMs - timeMs) <= toleranceMs }?.bpm
+    }
+
     val distanceMeters: Double by lazy { points.zipWithNext { a, b -> Geo.distance(a.position, b.position) }.sum() }
 }
 

@@ -14,6 +14,8 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import ar.nahuel.bitacora.ui.BitacoraRoot
 import ar.nahuel.bitacora.ui.MainViewModel
 import ar.nahuel.bitacora.ui.RootActions
@@ -56,6 +58,12 @@ class MainActivity : ComponentActivity() {
             requestRoutes = { routePermissionLauncher.launch(HealthAccess.core + HealthAccess.ROUTES) },
             clearRoutes = viewModel::clearImportedRoutes,
             retryMap = { viewModel.loadMap() },
+            connectSamsung = {
+                lifecycleScope.launch {
+                    val status = (application as BitacoraApplication).graph.samsung.connect(this@MainActivity)
+                    viewModel.onSamsungStatus(status)
+                }
+            },
             consentRoute = { id ->
                 pendingRouteId = id
                 routeConsentLauncher.launch(id)

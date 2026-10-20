@@ -40,6 +40,7 @@ class RootActions(
     val clearRoutes: () -> Unit,
     val retryMap: () -> Unit,
     val consentRoute: (String) -> Unit,
+    val connectSamsung: () -> Unit,
     val requestPermissions: () -> Unit,
     val installHealthConnect: () -> Unit,
     val openHealthConnect: () -> Unit,
@@ -89,7 +90,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
             .weight(1f)
             .fillMaxWidth()
         when (state.tab) {
-            Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, body)
+            Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, state.samsung, actions.connectSamsung, body)
             Tab.TRENDS -> TrendsScreen(state.content, body)
             Tab.ROUTINE -> RoutineScreen(state.routine, state.today, actions.toggleRoutine, body)
             Tab.LOG -> LogScreen(state.content, actions.openMap, body)
@@ -99,6 +100,8 @@ private fun MainLayout(state: UiState, actions: RootActions) {
                 backgroundGranted = state.backgroundGranted,
                 historyGranted = state.historyGranted,
                 crash = state.crash,
+                samsung = state.samsung,
+                onConnectSamsung = actions.connectSamsung,
                 onClearCrash = actions.clearCrash,
                 onSignIn = actions.signIn,
                 onSignOut = actions.signOut,

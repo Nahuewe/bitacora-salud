@@ -10,6 +10,7 @@ import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineLog
 import ar.nahuel.bitacora.routes.RouteImporter
 import ar.nahuel.bitacora.routes.RouteStore
+import ar.nahuel.bitacora.samsung.SamsungHealthSource
 import ar.nahuel.bitacora.sync.SyncService
 import ar.nahuel.bitacora.sync.SyncState
 import ar.nahuel.bitacora.sync.SyncWorker
@@ -30,7 +31,8 @@ class AppGraph(context: Context) {
     val routineLog = RoutineLog(context)
     val routeStore = RouteStore(context, json)
     val routeImporter = RouteImporter(context, json)
-    val sync = SyncService(health, auth, api, syncState, json, routineLog)
+    val samsung = SamsungHealthSource(context)
+    val sync = SyncService(health, auth, api, syncState, json, routineLog, samsung)
 }
 
 class BitacoraApplication : Application() {
