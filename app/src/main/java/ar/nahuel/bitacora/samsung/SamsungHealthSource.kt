@@ -140,7 +140,7 @@ class SamsungHealthSource(private val context: Context) {
         return SamsungActivity(days, sessions.sortedBy { it.start }, routes)
     }
 
-    private suspend fun <T> daily(
+    private suspend fun <T : Any> daily(
         operation: AggregateOperation<T, AggregateRequest.LocalTimeBuilder<T>>,
         filter: LocalTimeFilter,
     ): Map<LocalDate, T> {
