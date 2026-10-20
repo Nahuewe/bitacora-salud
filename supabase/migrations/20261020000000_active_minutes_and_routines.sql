@@ -5,7 +5,9 @@ alter table public.strength_logs drop constraint if exists strength_logs_routine
 alter table public.strength_logs
   add constraint strength_logs_routine_id_check check (routine_id in ('A', 'B', 'C', 'M'));
 
-create or replace view public.weekly_strength
+drop view if exists public.weekly_strength;
+
+create view public.weekly_strength
 with (security_invoker = true)
 as
 select
