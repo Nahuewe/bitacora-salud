@@ -152,7 +152,7 @@ class SamsungHealthSource(private val context: Context) {
                 .setPageSize(PAGE_SIZE)
             token?.let { builder.setPageToken(it) }
             val response = store().aggregateData(builder.build())
-            response.dataList.forEach { item -> item.value?.let { out[item.startLocalDateTime.toLocalDate()] = it } }
+            response.dataList.forEach { item -> item.value?.let { out[item.startTime.atZone(ZoneId.systemDefault()).toLocalDate()] = it } }
             token = response.pageToken?.takeIf { it.isNotBlank() }
         } while (token != null)
         return out
