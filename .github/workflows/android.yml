@@ -53,7 +53,25 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :app:testReleaseUnitTest :app:assembleRelease 2>&1 | tee build.log
+
+      - name: Reportar errores
+        if: failure()
+        run: |
+          grep -E "^e: " build.log | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+          for f in app/build/test-results/*/*.xml; do
+            [ -f "$f" ] || continue
+            python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for case in root.iter("testcase"):
+              for fail in list(case.iter("failure")) + list(case.iter("error")):
+                  msg = (fail.get("message") or fail.text or "").splitlines()[0][:300]
+                  print(f"::error::{case.get('classname')}.{case.get('name')}: {msg}")
+          PY
+          done
 
       - name: Renombrar APK
         run: cp app/build/outputs/apk/release/app-release.apk "bitacora-${{ github.run_number }}.apk"
