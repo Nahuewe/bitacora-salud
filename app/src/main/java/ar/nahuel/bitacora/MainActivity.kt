@@ -12,6 +12,7 @@ import androidx.activity.viewModels
 import ar.nahuel.bitacora.health.HealthAccess
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ar.nahuel.bitacora.ui.BitacoraRoot
 import ar.nahuel.bitacora.ui.MainViewModel
@@ -34,6 +35,13 @@ class MainActivity : ComponentActivity() {
         if (uri != null) viewModel.importRoutes(uri)
     }
 
+    private var pendingRouteId: String? = null
+
+    private val routeConsentLauncher = registerForActivityResult(ExerciseRouteRequestContract()) { route ->
+        pendingRouteId?.let { viewModel.onRouteConsent(it, route) }
+        pendingRouteId = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -48,6 +56,10 @@ class MainActivity : ComponentActivity() {
             requestRoutes = { routePermissionLauncher.launch(HealthAccess.core + HealthAccess.ROUTES) },
             clearRoutes = viewModel::clearImportedRoutes,
             retryMap = { viewModel.loadMap() },
+            consentRoute = { id ->
+                pendingRouteId = id
+                routeConsentLauncher.launch(id)
+            },
             requestPermissions = { permissionLauncher.launch(viewModel.permissionsToRequest) },
             installHealthConnect = ::openHealthConnectListing,
             openHealthConnect = ::openHealthConnectSettings,

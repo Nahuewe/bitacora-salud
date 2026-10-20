@@ -93,6 +93,10 @@ data class MapData(
     val fromHealthConnect: Int,
     val imported: Int,
     val consentRequired: Int,
+    val consentIds: List<String> = emptyList(),
+    val checked: Int = 0,
+    val withoutRoute: Int = 0,
+    val routePermission: Boolean = false,
 )
 
 sealed interface MapState {
@@ -175,6 +179,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         it.start.isAfter(java.time.Instant.now().minus(java.time.Duration.ofDays(ROUTE_DAYS)))
                 }
                 val fromHc = runCatching { graph.health.routes(walks) }.getOrNull()
+                val routePermission = runCatching { HealthAccess.ROUTES in graph.health.grantedPermissions() }.getOrDefault(false)
                 val imported = graph.routeStore.load()
                 val hcRoutes = fromHc?.routes.orEmpty()
                 val importedOnly = imported.filter { route ->
@@ -183,7 +188,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val routes = (hcRoutes + importedOnly).sortedBy { it.start }
                 if (routes.isEmpty()) {
-                    MapState.Ready(MapData(emptyList(), emptyList(), emptyList(), emptyList(), 0, 0, fromHc?.consentRequired ?: 0), message)
+                    MapState.Ready(
+                        MapData(
+                            tracks = emptyList(), zones = emptyList(), speedBreaks = emptyList(), heartBreaks = emptyList(),
+                            fromHealthConnect = 0, imported = 0,
+                            consentRequired = fromHc?.consentRequired ?: 0,
+                            consentIds = fromHc?.consentIds.orEmpty(),
+                            checked = fromHc?.checked ?: walks.size,
+                            withoutRoute = fromHc?.withoutRoute ?: 0,
+                            routePermission = routePermission,
+                        ),
+                        message,
+                    )
                 } else {
                     val heart = graph.health.heartRateSamples(routes.first().start, routes.last().end)
                     val data = withContext(Dispatchers.Default) {
@@ -199,6 +215,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             fromHealthConnect = hcRoutes.size,
                             imported = importedOnly.size,
                             consentRequired = fromHc?.consentRequired ?: 0,
+                            consentIds = fromHc?.consentIds.orEmpty(),
+                            checked = fromHc?.checked ?: walks.size,
+                            withoutRoute = fromHc?.withoutRoute ?: 0,
+                            routePermission = routePermission,
                         )
                     }
                     MapState.Ready(data, message)
@@ -231,6 +251,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "No se pudo leer la carpeta (${e.javaClass.simpleName})."
             }
             loadMap(message)
+        }
+    }
+
+    fun onRouteConsent(recordId: String, route: androidx.health.connect.client.records.ExerciseRoute?) {
+        if (route == null) {
+            loadMap("No se autorizó el recorrido.")
+            return
+        }
+        viewModelScope.launch {
+            val session = lastSnapshot?.sessions?.firstOrNull { it.id == recordId }
+            val points = route.route
+                .filter { Geo.isValid(it.latitude, it.longitude) }
+                .map { ar.nahuel.bitacora.domain.RoutePoint(it.time.toEpochMilli(), it.latitude, it.longitude) }
+            if (session != null && points.size >= 5) {
+                val stored = graph.routeStore.load()
+                graph.routeStore.save((stored + Route(recordId, session.start, session.end, Geo.thin(points), RouteSource.HEALTH_CONNECT)).distinctBy { it.id })
+                loadMap("Recorrido agregado.")
+            } else {
+                loadMap("Health Connect devolvió el recorrido vacío.")
+            }
         }
     }
 

@@ -96,7 +96,15 @@ class HeartSamples(private val times: LongArray, private val bpm: LongArray) {
     }
 }
 
-data class RouteRead(val routes: List<Route>, val consentRequired: Int)
+data class RouteRead(
+    val routes: List<Route>,
+    val consentIds: List<String>,
+    val checked: Int,
+    val withoutRoute: Int,
+    val failed: Int,
+) {
+    val consentRequired: Int get() = consentIds.size
+}
 
 private data class SessionTotals(val distanceMeters: Double?, val kilocalories: Double?)
 
@@ -296,13 +304,16 @@ class HealthConnectSource(private val context: Context) {
 
     suspend fun routes(sessions: List<ExerciseSession>): RouteRead {
         val routes = mutableListOf<Route>()
-        var consentRequired = 0
+        val consentIds = mutableListOf<String>()
+        var withoutRoute = 0
+        var failed = 0
         for (session in sessions) {
             val record = try {
                 client.readRecord(ExerciseSessionRecord::class, session.id).record
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                failed++
                 continue
             }
             when (val result = record.exerciseRouteResult) {
@@ -312,13 +323,15 @@ class HealthConnectSource(private val context: Context) {
                         .map { RoutePoint(it.time.toEpochMilli(), it.latitude, it.longitude) }
                     if (points.size >= 5) {
                         routes += Route(session.id, session.start, session.end, Geo.thin(points), RouteSource.HEALTH_CONNECT)
+                    } else {
+                        withoutRoute++
                     }
                 }
-                is ExerciseRouteResult.ConsentRequired -> consentRequired++
-                else -> Unit
+                is ExerciseRouteResult.ConsentRequired -> consentIds += session.id
+                else -> withoutRoute++
             }
         }
-        return RouteRead(routes, consentRequired)
+        return RouteRead(routes, consentIds.sortedByDescending { id -> sessions.firstOrNull { it.id == id }?.start }, sessions.size, withoutRoute, failed)
     }
 
     suspend fun weights(start: Instant, end: Instant): List<WeightEntry> =

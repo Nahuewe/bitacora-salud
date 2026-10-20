@@ -59,6 +59,7 @@ fun MapScreen(
     onRequestRoutes: () -> Unit,
     onClearImported: () -> Unit,
     onRetry: () -> Unit,
+    onConsent: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ink = LocalInk.current
@@ -96,7 +97,7 @@ fun MapScreen(
             is MapState.Ready -> {
                 val data = state.data
                 if (data.tracks.isEmpty()) {
-                    EmptyRoutes(data, state.message, onImport, onRequestRoutes)
+                    EmptyRoutes(data, state.message, onImport, onRequestRoutes, onConsent)
                 } else {
                     val tracks = remember(data, period) {
                         val cutoff = period.days?.let { Instant.now().minus(it, ChronoUnit.DAYS) }
@@ -134,7 +135,12 @@ fun MapScreen(
                             color = ink.inkSoft,
                             modifier = Modifier.padding(top = 4.dp),
                         )
+                        Text(diagnosis(data), style = Type.small, color = ink.inkSoft, modifier = Modifier.padding(top = 4.dp))
                         Row(Modifier.padding(top = 8.dp)) {
+                            if (data.consentIds.isNotEmpty()) {
+                                LedgerButton("Autorizar", { onConsent(data.consentIds.first()) })
+                                Spacer(Modifier.width(8.dp))
+                            }
                             LedgerButton("Importar", onImport)
                             Spacer(Modifier.width(8.dp))
                             if (data.imported > 0) LedgerButton("Borrar importados", onClearImported)
@@ -227,19 +233,29 @@ private fun Legend(metric: MapMetric, breaks: List<Double>) {
 }
 
 @Composable
-private fun EmptyRoutes(data: MapData, message: String?, onImport: () -> Unit, onRequestRoutes: () -> Unit) {
+private fun EmptyRoutes(data: MapData, message: String?, onImport: () -> Unit, onRequestRoutes: () -> Unit, onConsent: (String) -> Unit) {
     val ink = LocalInk.current
     Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text("Todavía no hay recorridos.", style = Type.headline, color = ink.ink)
         message?.let { Text(it, style = Type.body, color = ink.signal, modifier = Modifier.padding(top = 10.dp)) }
+        Text(diagnosis(data), style = Type.body, color = ink.ink, modifier = Modifier.padding(top = 12.dp))
+        if (data.consentIds.isNotEmpty()) {
+            Text(
+                "Health Connect pide autorizar cada recorrido. Para no hacerlo uno por uno, tocá Permitir recorridos y elegí \"Permitir siempre\".",
+                style = Type.small,
+                color = ink.inkSoft,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            LedgerButton("Autorizar la última caminata", { onConsent(data.consentIds.first()) }, filled = true, modifier = Modifier.padding(top = 8.dp))
+        }
         Text(
-            "Samsung Health no siempre comparte el GPS con Health Connect. Hay dos caminos:",
+            "Samsung Health muestra el mapa al terminar la caminata, pero no siempre le pasa el GPS a Health Connect. Hay dos caminos:",
             style = Type.body,
             color = ink.inkSoft,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 16.dp),
         )
-        Step(1, "Permitir recorridos en Health Connect. Si Samsung los comparte, aparecen solos.")
-        LedgerButton("Permitir recorridos", onRequestRoutes, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
+        Step(1, if (data.routePermission) "El permiso de recorridos ya está dado. Si igual no aparecen, Samsung no los está compartiendo: usá el paso 2." else "Permitir recorridos en Health Connect. Si Samsung los comparte, aparecen solos.")
+        if (!data.routePermission) LedgerButton("Permitir recorridos", onRequestRoutes, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
         Step(2, "Importar desde la exportación de Samsung Health: en Samsung Health tocá Ajustes → Descargar datos personales. Después, acá, elegí la carpeta samsunghealth_… que queda en Descargas → Samsung Health.")
         LedgerButton("Importar exportación", onImport, filled = true, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
         if (data.consentRequired > 0) {
@@ -252,6 +268,15 @@ private fun EmptyRoutes(data: MapData, message: String?, onImport: () -> Unit, o
             modifier = Modifier.padding(top = 20.dp),
         )
     }
+}
+
+private fun diagnosis(data: MapData): String = buildString {
+    append("Revisé ${data.checked} caminatas de los últimos 120 días en Health Connect: ")
+    append("${data.fromHealthConnect} con recorrido")
+    if (data.consentRequired > 0) append(", ${data.consentRequired} esperan tu autorización")
+    append(", ${data.withoutRoute} sin GPS compartido.")
+    if (data.imported > 0) append(" Además hay ${data.imported} importadas de la exportación.")
+    if (!data.routePermission) append(" Falta el permiso de recorridos.")
 }
 
 @Composable

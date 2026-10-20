@@ -39,6 +39,7 @@ class RootActions(
     val requestRoutes: () -> Unit,
     val clearRoutes: () -> Unit,
     val retryMap: () -> Unit,
+    val consentRoute: (String) -> Unit,
     val requestPermissions: () -> Unit,
     val installHealthConnect: () -> Unit,
     val openHealthConnect: () -> Unit,
@@ -73,6 +74,7 @@ fun BitacoraRoot(state: UiState, actions: RootActions) {
                 onRequestRoutes = actions.requestRoutes,
                 onClearImported = actions.clearRoutes,
                 onRetry = actions.retryMap,
+                onConsent = actions.consentRoute,
             )
         } else {
             MainLayout(state, actions)
