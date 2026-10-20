@@ -29,6 +29,7 @@ Samsung Health ──► Health Connect ──► App (Kotlin + Compose)
 Cada archivo nuevo en `supabase/migrations/` se ejecuta una vez en el SQL Editor, en orden:
 
 - `20261016000000_strength_logs.sql`: sesiones de fuerza marcadas en la pestaña Rutina.
+- `20261020000000_active_minutes_and_routines.sql`: minutos activos por día y rutinas de core y movilidad.
 
 Los recorridos GPS **no** se sincronizan: quedan solo en el teléfono porque revelan domicilio y lugar de trabajo.
 

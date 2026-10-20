@@ -93,7 +93,7 @@ private fun LazyListScope.loadedSheet(dashboard: Dashboard, notes: List<Recommen
     items(dashboard.days, key = { "day-${it.date}" }) { StepRow(it, dashboard.stepScaleMax) }
 
     item {
-        SectionHeader("Carga semanal", "minutos de ejercicio")
+        SectionHeader("Carga semanal", "minutos activos")
         Spacer(Modifier.height(6.dp))
     }
     items(dashboard.weeks, key = { "week-${it.weekStart}" }) { WeekLoadRow(it, dashboard.weekScaleMax) }
@@ -111,16 +111,47 @@ private fun Summary(dashboard: Dashboard) {
     val ink = LocalInk.current
     val today = dashboard.days.firstOrNull()
     val week = dashboard.weeks.firstOrNull()
-    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+    Column {
+    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Pasos hoy", style = Type.small, color = ink.inkSoft)
             Text(Format.int(today?.steps ?: 0L), style = Type.figureLarge, color = ink.ink)
         }
         Column(Modifier.weight(1f)) {
-            Text("Ejercicio esta semana", style = Type.small, color = ink.inkSoft)
-            Text("${Format.int(week?.minutes ?: 0L)} min", style = Type.figureLarge, color = ink.ink)
+            Text("Activo hoy", style = Type.small, color = ink.inkSoft)
+            Text("${Format.int(today?.activeMinutes ?: 0L)} min", style = Type.figureLarge, color = ink.ink)
         }
     }
+    Text(
+        "Activo esta semana: ${Format.int(week?.minutes ?: 0L)} min. Se estima con los minutos en los que diste más de 60 pasos; Samsung Health no comparte su \"tiempo de actividad\" con Health Connect, así que puede diferir unos minutos.",
+        style = Type.small,
+        color = ink.inkSoft,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+    today?.let { day -> SourcesNote(day) }
+    }
+}
+
+@Composable
+private fun SourcesNote(day: ar.nahuel.bitacora.domain.DayActivity) {
+    val ink = LocalInk.current
+    val others = day.sources.filter { it.value != day.steps }
+    val hc = day.healthConnectSteps
+    if (others.isEmpty() && (hc == null || hc == day.steps)) return
+    val detail = buildString {
+        append("Fuentes de pasos hoy: ")
+        append(day.sources.entries.sortedByDescending { it.value }.joinToString(" · ") { "${sourceName(it.key)} ${Format.int(it.value)}" })
+        if (hc != null && hc != day.steps) append(". Health Connect, por su orden de prioridad, informa ${Format.int(hc)}")
+        append(". Uso la fuente con más pasos. Para que coincida en todas las apps, en Health Connect → Prioridad de las apps → Pasos, poné Samsung Health primero.")
+    }
+    Text(detail, style = Type.small, color = ink.signal, modifier = Modifier.padding(top = 6.dp))
+}
+
+private fun sourceName(packageName: String): String = when {
+    packageName.contains("shealth") -> "Samsung Health"
+    packageName.contains("google.android.apps.fitness") -> "Google Fit"
+    packageName.contains("healthdata") || packageName == "android" -> "Teléfono"
+    else -> packageName.substringAfterLast('.')
 }
 
 @Composable

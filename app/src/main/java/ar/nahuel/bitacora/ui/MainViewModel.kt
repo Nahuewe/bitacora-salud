@@ -140,7 +140,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loggedStrengthDays(): List<LocalDate> = graph.routineLog.entries().map { it.date }
+    private fun loggedStrengthDays(): List<LocalDate> =
+        graph.routineLog.entries().filter { it.routineId in StrengthProgram.strengthIds }.map { it.date }
 
     private fun refreshRoutine() {
         val today = LocalDate.now()

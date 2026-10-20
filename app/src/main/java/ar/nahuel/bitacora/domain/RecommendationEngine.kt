@@ -23,8 +23,8 @@ data class Thresholds(
     val stepFloor: Long = 6_000,
     val stepTarget: Long = 7_000,
     val rampRatio: Double = 1.3,
-    val rampBaselineMinutes: Double = 30.0,
-    val rampAbsoluteMinutes: Long = 150,
+    val rampBaselineMinutes: Double = 150.0,
+    val rampAbsoluteMinutes: Long = 600,
     val intensityHeartRate: Long = 135,
     val intensityMinMinutes: Long = 20,
     val strengthWindowDays: Long = 14,
@@ -56,23 +56,18 @@ class RecommendationEngine(private val t: Thresholds = Thresholds()) {
         weight(snapshot, today),
     ).sortedBy { it.severity.ordinal }
 
-    internal fun exerciseMinutes(snapshot: HealthSnapshot, fromInclusive: LocalDate, toExclusive: LocalDate): Long =
-        snapshot.sessions
-            .filter { val d = snapshot.localDate(it.start); d >= fromInclusive && d < toExclusive }
-            .sumOf { it.durationMinutes }
-
     private fun loadRamp(s: HealthSnapshot, today: LocalDate): Recommendation? {
-        if (s.sessions.isEmpty()) return null
-        val current = exerciseMinutes(s, today.minusDays(6), today.plusDays(1))
-        val baseline = exerciseMinutes(s, today.minusDays(34), today.minusDays(6)) / 4.0
+        if (s.days.none { it.activeMinutes > 0 }) return null
+        val current = s.activeMinutes(today.minusDays(6), today.plusDays(1))
+        val baseline = s.activeMinutes(today.minusDays(34), today.minusDays(6)) / 4.0
         val steepRamp = baseline >= t.rampBaselineMinutes && current > baseline * t.rampRatio
         val coldStart = baseline < t.rampBaselineMinutes && current >= t.rampAbsoluteMinutes
         if (!steepRamp && !coldStart) return null
         val comparison = if (steepRamp) {
             val pct = ((current / baseline - 1) * 100).roundToLong()
-            "Esta semana llevás ${Format.int(current)} min de ejercicio contra ${Format.int(baseline.roundToLong())} de promedio en las cuatro anteriores (+$pct%)."
+            "En los últimos 7 días sumaste ${Format.int(current)} minutos activos contra ${Format.int(baseline.roundToLong())} de promedio semanal en las cuatro semanas anteriores (+$pct%)."
         } else {
-            "Esta semana llevás ${Format.int(current)} min de ejercicio, viniendo de casi nada en las cuatro anteriores."
+            "En los últimos 7 días sumaste ${Format.int(current)} minutos activos, viniendo de muy poco en las cuatro semanas anteriores."
         }
         return Recommendation(
             id = "ramp",

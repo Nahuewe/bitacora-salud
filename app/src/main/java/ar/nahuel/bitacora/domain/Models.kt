@@ -35,6 +35,9 @@ data class DayActivity(
     val steps: Long,
     val distanceMeters: Double?,
     val activeKilocalories: Double?,
+    val activeMinutes: Long = 0,
+    val sources: Map<String, Long> = emptyMap(),
+    val healthConnectSteps: Long? = null,
 )
 
 data class SleepSession(
@@ -65,6 +68,9 @@ data class HealthSnapshot(
     val weights: List<WeightEntry>,
 ) {
     fun localDate(instant: Instant): LocalDate = instant.atZone(zone).toLocalDate()
+
+    fun activeMinutes(fromInclusive: LocalDate, toExclusive: LocalDate): Long =
+        days.filter { it.date >= fromInclusive && it.date < toExclusive }.sumOf { it.activeMinutes }
 
     val mainSleeps: List<SleepSession> by lazy {
         sleeps

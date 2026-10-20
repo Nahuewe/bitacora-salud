@@ -61,7 +61,10 @@ fun PoseFigure(frame: Frame, description: String, modifier: Modifier = Modifier)
 
             limb(pose.hip, pose.knee, body, thick)
             limb(pose.knee, pose.ankle, body, thick)
-            if (pose.feet) limb(pose.ankle, P(pose.ankle.x + 0.07f, pose.ankle.y), body, thick)
+            when {
+                pose.footTo != null -> limb(pose.ankle, pose.footTo, body, thick)
+                pose.feet -> limb(pose.ankle, P(pose.ankle.x + 0.07f, pose.ankle.y), body, thick)
+            }
             limb(pose.shoulder, pose.hip, body, thick * 1.25f)
             limb(pose.shoulder, pose.elbow, body, thick)
             limb(pose.elbow, pose.hand, body, thick)

@@ -165,16 +165,64 @@ class HealthConnectSource(private val context: Context) {
                 timeRangeSlicer = Period.ofDays(1),
             ),
         )
-        return groups
-            .filter { it.result[StepsRecord.COUNT_TOTAL] != null }
-            .map {
-                DayActivity(
-                    date = it.startTime.toLocalDate(),
-                    steps = it.result[StepsRecord.COUNT_TOTAL] ?: 0L,
-                    distanceMeters = it.result[DistanceRecord.DISTANCE_TOTAL]?.inMeters,
-                    activeKilocalories = it.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,
-                )
+        val zone = ZoneId.systemDefault()
+        val bySource = stepsBySource(from, toInclusive, zone)
+        val aggregated = groups.associateBy { it.startTime.toLocalDate() }
+        val dates = (aggregated.keys + bySource.keys).filter { !it.isBefore(from) && !it.isAfter(toInclusive) }.sortedBy { it.toEpochDay() }
+        return dates.mapNotNull { date ->
+            val group = aggregated[date]
+            val sources = bySource[date].orEmpty()
+            val best = sources.maxByOrNull { it.value.steps }
+            val aggregateSteps = group?.result?.get(StepsRecord.COUNT_TOTAL)
+            val steps = maxOf(best?.value?.steps ?: 0L, aggregateSteps ?: 0L)
+            if (best == null && aggregateSteps == null) return@mapNotNull null
+            DayActivity(
+                date = date,
+                steps = steps,
+                distanceMeters = group?.result?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters,
+                activeKilocalories = group?.result?.get(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories,
+                activeMinutes = best?.value?.activeMinutes ?: 0L,
+                sources = sources.mapValues { it.value.steps },
+                healthConnectSteps = aggregateSteps,
+            )
+        }
+    }
+
+    private class SourceDay(var steps: Long = 0L, var activeMinutes: Long = 0L)
+
+    private suspend fun stepsBySource(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): Map<LocalDate, Map<String, SourceDay>> {
+        val start = from.atStartOfDay(zone).toInstant()
+        val end = toInclusive.plusDays(1).atStartOfDay(zone).toInstant()
+        val records = try {
+            readAll(StepsRecord::class, TimeRangeFilter.between(start, end))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SecurityException) {
+            throw e
+        } catch (e: Exception) {
+            return emptyMap()
+        }
+        val days = HashMap<LocalDate, HashMap<String, SourceDay>>()
+        val minuteSteps = HashMap<String, HashMap<Long, Double>>()
+        records.forEach { record ->
+            val origin = record.metadata.dataOrigin.packageName
+            val date = record.startTime.atZone(zone).toLocalDate()
+            days.getOrPut(date) { HashMap() }.getOrPut(origin) { SourceDay() }.steps += record.count
+            val firstMinute = record.startTime.toEpochMilli() / MINUTE_MS
+            val lastMinute = maxOf(firstMinute + 1, (record.endTime.toEpochMilli() + MINUTE_MS - 1) / MINUTE_MS)
+            val perMinute = record.count.toDouble() / (lastMinute - firstMinute)
+            val buckets = minuteSteps.getOrPut(origin) { HashMap() }
+            for (minute in firstMinute until lastMinute) buckets[minute] = (buckets[minute] ?: 0.0) + perMinute
+        }
+        minuteSteps.forEach { (origin, buckets) ->
+            buckets.forEach { (minute, steps) ->
+                if (steps >= ACTIVE_STEPS_PER_MINUTE) {
+                    val date = Instant.ofEpochMilli(minute * MINUTE_MS).atZone(zone).toLocalDate()
+                    days[date]?.get(origin)?.let { it.activeMinutes++ }
+                }
             }
+        }
+        return days
     }
 
     suspend fun exerciseSessions(start: Instant, end: Instant, heart: HeartSamples? = null): List<ExerciseSession> {
@@ -323,5 +371,7 @@ class HealthConnectSource(private val context: Context) {
 
     private companion object {
         const val PAGE_SIZE = 1000
+        const val MINUTE_MS = 60_000L
+        const val ACTIVE_STEPS_PER_MINUTE = 60.0
     }
 }

@@ -63,7 +63,7 @@ object DashboardBuilder {
             val list = sessionsByWeek[start].orEmpty()
             WeekRow(
                 weekStart = start,
-                minutes = list.sumOf { it.durationMinutes },
+                minutes = snapshot.activeMinutes(start, start.plusDays(7)),
                 sessions = list.size,
                 intenseMinutes = list
                     .filter { (it.avgHeartRate ?: 0L) >= thresholds.intensityHeartRate }
@@ -96,7 +96,7 @@ object DashboardBuilder {
             nights = nights,
             sessionWeeks = sessionWeeks,
             stepScaleMax = maxOf(days.maxOfOrNull { it.steps } ?: 0L, thresholds.stepTarget + 3_000),
-            weekScaleMax = maxOf(weeks.maxOfOrNull { it.minutes } ?: 0L, 150L),
+            weekScaleMax = maxOf(weeks.maxOfOrNull { it.minutes } ?: 0L, 300L),
         )
     }
 }

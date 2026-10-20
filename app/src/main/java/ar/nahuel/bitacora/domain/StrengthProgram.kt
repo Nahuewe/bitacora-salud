@@ -19,6 +19,7 @@ data class Pose(
     val knee2: P? = null,
     val ankle2: P? = null,
     val feet: Boolean = true,
+    val footTo: P? = null,
 )
 
 sealed interface Prop {
@@ -50,11 +51,11 @@ data class Exercise(
     val frames: List<Frame>,
 )
 
-data class Routine(val id: String, val name: String, val minutes: Int, val exercises: List<Exercise>)
+data class Routine(val id: String, val name: String, val minutes: Int, val exercises: List<Exercise>, val format: String = "", val purpose: String = "")
 
 enum class DayKind { STRENGTH, EASY_WALK, INTERVALS, LONG_WALK, REST }
 
-data class PlanDay(val day: DayOfWeek, val kind: DayKind, val title: String, val detail: String, val routineId: String? = null)
+data class PlanDay(val day: DayOfWeek, val kind: DayKind, val title: String, val detail: String, val routineIds: List<String> = emptyList())
 
 data class Phase(val name: String, val weeks: String, val rule: String)
 
@@ -404,10 +405,304 @@ object StrengthProgram {
         ),
     )
 
-    val routines = listOf(
-        Routine("A", "Fuerza A", 35, listOf(boxSquat, dumbbellRow, inclinePushUp, gluteBridge, plank)),
-        Routine("B", "Fuerza B", 35, listOf(romanianDeadlift, shoulderPress, splitSquat, bandRow, deadBug)),
+    private val birdDog = Exercise(
+        id = "bird-dog",
+        name = "Bird dog",
+        prescription = "2 × 8 por lado",
+        rest = "30 s",
+        equipment = "Una colchoneta.",
+        cues = listOf(
+            "En cuatro apoyos: manos bajo los hombros, rodillas bajo la cadera.",
+            "Estirá un brazo hacia adelante y la pierna contraria hacia atrás, hasta la altura del cuerpo.",
+            "Sostené dos segundos con la espalda quieta, como si tuvieras un vaso apoyado en la cintura.",
+            "Volvé despacio y cambiá de lado.",
+        ),
+        avoid = listOf(
+            "Levantar la pierna por encima de la cadera y arquear la espalda.",
+            "Girar la cadera hacia el costado.",
+        ),
+        easier = "Mover solo la pierna, o solo el brazo.",
+        harder = "Pausa de cinco segundos en la extensión.",
+        frames = listOf(
+            Frame(
+                "Inicio",
+                Pose(p(.78, .56), p(.68, .6), p(.68, .76), p(.68, .92), p(.38, .6), p(.38, .92), p(.18, .92), feet = false),
+            ),
+            Frame(
+                "Extensión",
+                Pose(
+                    p(.78, .56), p(.68, .6), p(.82, .58), p(.95, .57), p(.38, .6), p(.21, .6), p(.05, .61),
+                    elbow2 = p(.68, .76), hand2 = p(.68, .92), knee2 = p(.38, .92), ankle2 = p(.18, .92), feet = false,
+                ),
+                guides = listOf(Guide(p(.95, .57), p(.05, .61))),
+            ),
+        ),
     )
+
+    private val sidePlank = Exercise(
+        id = "side-plank",
+        name = "Plancha lateral con rodillas",
+        prescription = "2 × 20 s por lado",
+        rest = "30 s",
+        equipment = "Una colchoneta.",
+        cues = listOf(
+            "De costado, codo justo debajo del hombro y rodillas dobladas hacia atrás.",
+            "Subí la cadera hasta formar una línea de la cabeza a las rodillas.",
+            "Empujá el piso con el antebrazo para no hundirte en el hombro.",
+        ),
+        avoid = listOf(
+            "Cadera caída hacia el piso.",
+            "Hombro pegado a la oreja.",
+        ),
+        easier = "Menos tiempo, 10 a 15 segundos.",
+        harder = "Con las piernas estiradas, apoyando los pies.",
+        frames = listOf(
+            Frame(
+                "Bien",
+                Pose(p(.17, .58), p(.25, .63), p(.25, .9), p(.4, .9), p(.53, .76), p(.8, .9), p(.92, .8), feet = false),
+                guides = listOf(Guide(p(.17, .58), p(.8, .9))),
+            ),
+            Frame(
+                "Evitá",
+                Pose(p(.17, .58), p(.25, .63), p(.25, .9), p(.4, .9), p(.53, .86), p(.8, .9), p(.92, .8), feet = false),
+                guides = listOf(Guide(p(.17, .58), p(.8, .9))),
+                wrong = true,
+            ),
+        ),
+    )
+
+    private val proneY = Exercise(
+        id = "prone-y",
+        name = "Y en el piso",
+        prescription = "2 × 10",
+        rest = "30 s",
+        equipment = "Una colchoneta. Es el ejercicio de postura para contrarrestar las horas frente a la pantalla.",
+        cues = listOf(
+            "Boca abajo, brazos estirados por delante formando una Y, pulgares hacia el techo.",
+            "Llevá los omóplatos hacia atrás y abajo y despegá los brazos unos centímetros.",
+            "Sostené dos segundos con la mirada al piso.",
+        ),
+        avoid = listOf(
+            "Levantar la cabeza o arquear el cuello.",
+            "Subir los hombros hacia las orejas.",
+        ),
+        easier = "Brazos en T, a los costados.",
+        harder = "Pausa de cinco segundos, o una botella chica en cada mano.",
+        frames = listOf(
+            Frame(
+                "Inicio",
+                Pose(p(.22, .86), p(.3, .88), p(.18, .9), p(.06, .9), p(.56, .89), p(.72, .9), p(.9, .9), feet = false),
+            ),
+            Frame(
+                "Arriba",
+                Pose(p(.22, .86), p(.3, .88), p(.18, .84), p(.06, .8), p(.56, .89), p(.72, .9), p(.9, .9), feet = false),
+                guides = listOf(Guide(p(.3, .88), p(.06, .8))),
+            ),
+        ),
+    )
+
+    private val calfRaise = Exercise(
+        id = "calf-raise",
+        name = "Elevación de talones",
+        prescription = "2 × 15",
+        rest = "30 s",
+        equipment = "Una pared o una silla para apoyar las manos. Más adelante, el borde de un escalón.",
+        cues = listOf(
+            "De pie, pies al ancho de la cadera, manos apoyadas en la pared.",
+            "Subí a puntas de pie en un segundo, sostené uno arriba y bajá en tres.",
+            "El peso va sobre el dedo gordo y el segundo dedo, no hacia afuera.",
+        ),
+        avoid = listOf(
+            "Rebotar abajo.",
+            "Doblar las rodillas para empujar.",
+        ),
+        easier = "Menos repeticiones, o subir con dos pies y bajar igual.",
+        harder = "Una pierna a la vez, o desde el borde de un escalón.",
+        frames = listOf(
+            Frame(
+                "Abajo",
+                Pose(p(.5, .12), p(.5, .24), p(.62, .3), p(.76, .3), p(.5, .52), p(.5, .72), p(.5, .92)),
+                props = listOf(Prop.Block(.78f, .1f, .82f, .92f)),
+            ),
+            Frame(
+                "Arriba",
+                Pose(p(.5, .06), p(.5, .18), p(.62, .24), p(.76, .26), p(.5, .46), p(.5, .66), p(.5, .85), footTo = p(.56, .92)),
+                props = listOf(Prop.Block(.78f, .1f, .82f, .92f)),
+            ),
+        ),
+    )
+
+    private val calfStretch = Exercise(
+        id = "calf-stretch",
+        name = "Gemelos en la pared",
+        prescription = "30 s por lado",
+        rest = "—",
+        equipment = "Una pared.",
+        cues = listOf(
+            "Manos en la pared, un pie adelante y el otro atrás con la pierna estirada.",
+            "Talón de atrás apoyado y la punta mirando a la pared.",
+            "Llevá la cadera hacia adelante hasta sentir el estiramiento en la pantorrilla.",
+        ),
+        avoid = listOf("Despegar el talón de atrás.", "Rebotar."),
+        easier = "Pie de atrás más cerca.",
+        harder = "Doblar un poco la rodilla de atrás para llegar al tendón de Aquiles.",
+        frames = listOf(
+            Frame(
+                "Bien",
+                Pose(p(.68, .2), p(.63, .3), p(.75, .3), p(.86, .3), p(.5, .55), p(.63, .72), p(.65, .92), knee2 = p(.39, .73), ankle2 = p(.27, .92)),
+                props = listOf(Prop.Block(.87f, .1f, .91f, .92f)),
+                guides = listOf(Guide(p(.5, .55), p(.27, .92))),
+            ),
+            Frame(
+                "Evitá",
+                Pose(p(.68, .2), p(.63, .3), p(.75, .3), p(.86, .3), p(.5, .55), p(.63, .72), p(.65, .92), knee2 = p(.39, .72), ankle2 = p(.29, .86)),
+                props = listOf(Prop.Block(.87f, .1f, .91f, .92f)),
+                wrong = true,
+            ),
+        ),
+    )
+
+    private val hipFlexor = Exercise(
+        id = "hip-flexor",
+        name = "Flexor de cadera en estocada",
+        prescription = "30 s por lado",
+        rest = "—",
+        equipment = "Un almohadón o una toalla doblada bajo la rodilla.",
+        cues = listOf(
+            "Rodilla de atrás en el piso, pie de adelante apoyado con la rodilla sobre el tobillo.",
+            "Apretá el glúteo de la pierna de atrás y llevá la cadera apenas hacia adelante.",
+            "Torso erguido: el estiramiento se siente adelante de la cadera de atrás.",
+        ),
+        avoid = listOf("Arquear la zona lumbar.", "Inclinar el torso hacia adelante."),
+        easier = "Menos avance de la cadera.",
+        harder = "Levantar el brazo del lado de atrás hacia el techo.",
+        frames = listOf(
+            Frame(
+                "Bien",
+                Pose(p(.46, .24), p(.46, .36), p(.4, .48), p(.45, .6), p(.46, .64), p(.64, .66), p(.65, .92), knee2 = p(.33, .9), ankle2 = p(.14, .92)),
+                guides = listOf(Guide(p(.46, .2), p(.46, .66))),
+            ),
+            Frame(
+                "Evitá",
+                Pose(p(.6, .3), p(.54, .39), p(.5, .52), p(.56, .62), p(.46, .64), p(.64, .66), p(.65, .92), knee2 = p(.33, .9), ankle2 = p(.14, .92)),
+                guides = listOf(Guide(p(.46, .2), p(.46, .66))),
+                wrong = true,
+            ),
+        ),
+    )
+
+    private val hamstringStretch = Exercise(
+        id = "hamstring-stretch",
+        name = "Isquiotibiales en escalón",
+        prescription = "30 s por lado",
+        rest = "—",
+        equipment = "Un escalón, banco bajo o silla.",
+        cues = listOf(
+            "Talón sobre el escalón, pierna estirada y punta del pie hacia arriba.",
+            "Llevá la cadera hacia atrás con la espalda recta, como en el peso muerto rumano.",
+            "Pará cuando sientas el estiramiento detrás del muslo, no en la espalda.",
+        ),
+        avoid = listOf("Redondear la espalda para llegar más abajo.", "Trabar la rodilla de apoyo."),
+        easier = "Escalón más bajo.",
+        harder = "Inclinarte un poco más, siempre con la espalda recta.",
+        frames = listOf(
+            Frame(
+                "Inicio",
+                Pose(p(.42, .12), p(.42, .24), p(.48, .36), p(.54, .46), p(.42, .52), p(.56, .64), p(.72, .74), knee2 = p(.42, .72), ankle2 = p(.4, .92)),
+                props = listOf(Prop.Block(.66f, .76f, .9f, .92f)),
+            ),
+            Frame(
+                "Bien",
+                Pose(p(.66, .3), p(.58, .36), p(.6, .48), p(.6, .58), p(.36, .52), p(.54, .64), p(.72, .74), knee2 = p(.38, .72), ankle2 = p(.38, .92)),
+                props = listOf(Prop.Block(.66f, .76f, .9f, .92f)),
+                guides = listOf(Guide(p(.31, .56), p(.66, .3))),
+            ),
+        ),
+    )
+
+    private val chestOpener = Exercise(
+        id = "chest-opener",
+        name = "Apertura de pecho en el marco",
+        prescription = "30 s por lado",
+        rest = "—",
+        equipment = "El marco de una puerta.",
+        cues = listOf(
+            "Antebrazo apoyado en el marco, codo a la altura del hombro.",
+            "Dá un paso corto hacia adelante hasta sentir el estiramiento en el pecho.",
+            "Mantené el abdomen firme y el cuello largo.",
+        ),
+        avoid = listOf("Arquear la espalda para avanzar más.", "Codo por encima de la cabeza si molesta el hombro."),
+        easier = "Codo más bajo.",
+        harder = "Un paso más largo.",
+        frames = listOf(
+            Frame(
+                "Inicio",
+                Pose(p(.45, .12), p(.45, .24), p(.37, .24), p(.37, .12), p(.45, .52), p(.5, .72), p(.5, .92), knee2 = p(.44, .72), ankle2 = p(.42, .92)),
+                props = listOf(Prop.Block(.33f, .04f, .36f, .92f)),
+            ),
+            Frame(
+                "Estiramiento",
+                Pose(p(.56, .13), p(.54, .25), p(.39, .25), p(.38, .13), p(.52, .52), p(.62, .72), p(.64, .92), knee2 = p(.47, .72), ankle2 = p(.42, .92)),
+                props = listOf(Prop.Block(.33f, .04f, .36f, .92f)),
+            ),
+        ),
+    )
+
+    private val quadStretch = Exercise(
+        id = "quad-stretch",
+        name = "Cuádriceps de pie con apoyo",
+        prescription = "30 s por lado",
+        rest = "—",
+        equipment = "Una pared o silla para apoyarte.",
+        cues = listOf(
+            "Una mano en la pared; con la otra tomá el tobillo y llevá el talón hacia el glúteo.",
+            "Rodillas juntas y apuntando al piso.",
+            "Apretá el glúteo de la pierna estirada para sentirlo adelante del muslo.",
+        ),
+        avoid = listOf("Rodilla que se va hacia adelante o al costado.", "Arquear la espalda."),
+        easier = "Apoyar el pie en una silla detrás tuyo.",
+        harder = "Sin apoyo, si el equilibrio lo permite.",
+        frames = listOf(
+            Frame(
+                "Bien",
+                Pose(p(.5, .12), p(.5, .24), p(.45, .42), p(.41, .56), p(.5, .52), p(.5, .74), p(.4, .57), elbow2 = p(.62, .28), hand2 = p(.74, .26), knee2 = p(.5, .72), ankle2 = p(.5, .92), feet = false),
+                props = listOf(Prop.Block(.76f, .1f, .8f, .92f)),
+                guides = listOf(Guide(p(.5, .52), p(.5, .92))),
+            ),
+            Frame(
+                "Evitá",
+                Pose(p(.5, .12), p(.5, .24), p(.47, .42), p(.47, .56), p(.5, .52), p(.62, .66), p(.48, .58), elbow2 = p(.62, .28), hand2 = p(.74, .26), knee2 = p(.5, .72), ankle2 = p(.5, .92), feet = false),
+                props = listOf(Prop.Block(.76f, .1f, .8f, .92f)),
+                guides = listOf(Guide(p(.5, .52), p(.5, .92))),
+                wrong = true,
+            ),
+        ),
+    )
+
+    val routines = listOf(
+        Routine(
+            "A", "Fuerza A", 35, listOf(boxSquat, dumbbellRow, inclinePushUp, gluteBridge, plank),
+            format = "Series seguidas de cada ejercicio, con su descanso.",
+            purpose = "Piernas, espalda, pecho y abdomen.",
+        ),
+        Routine(
+            "B", "Fuerza B", 35, listOf(romanianDeadlift, shoulderPress, splitSquat, bandRow, deadBug),
+            format = "Series seguidas de cada ejercicio, con su descanso.",
+            purpose = "Cadena posterior, hombros y estabilidad.",
+        ),
+        Routine(
+            "C", "Core y postura", 15, listOf(birdDog, sidePlank, proneY, calfRaise),
+            format = "Dos vueltas al circuito, 30 s de pausa entre ejercicios.",
+            purpose = "Abdomen, espalda alta y pantorrillas: sostienen la postura y protegen tibias y talones en las caminatas largas.",
+        ),
+        Routine(
+            "M", "Movilidad después de caminar", 8, listOf(calfStretch, hipFlexor, hamstringStretch, quadStretch, chestOpener),
+            format = "Una vuelta, 30 s por lado, respirando lento.",
+            purpose = "Después de cada caminata, con los músculos calientes. No es para ganar flexibilidad rápido sino para bajar la tensión del día.",
+        ),
+    )
+
+    val strengthIds = setOf("A", "B")
 
     fun routine(id: String): Routine? = routines.firstOrNull { it.id == id }
 
@@ -429,16 +724,16 @@ object StrengthProgram {
     }
 
     fun weekPlan(week: Int): List<PlanDay> = listOf(
-        PlanDay(DayOfWeek.MONDAY, DayKind.STRENGTH, "Fuerza A", "35 min. Caminata suave opcional.", "A"),
-        PlanDay(DayOfWeek.TUESDAY, DayKind.EASY_WALK, "Caminata suave", "40 a 60 min a ritmo de conversación."),
-        PlanDay(DayOfWeek.WEDNESDAY, DayKind.INTERVALS, "Caminata con intervalos", "5 o 6 bloques de 3 min rápido o en subida y 2 min suave."),
-        PlanDay(DayOfWeek.THURSDAY, DayKind.STRENGTH, "Fuerza B", "35 min.", "B"),
-        PlanDay(DayOfWeek.FRIDAY, DayKind.EASY_WALK, "Caminata suave", "40 a 60 min a ritmo de conversación."),
+        PlanDay(DayOfWeek.MONDAY, DayKind.STRENGTH, "Fuerza A", "35 min. Si caminás, que sea suave, y movilidad al volver.", listOf("A", "M")),
+        PlanDay(DayOfWeek.TUESDAY, DayKind.EASY_WALK, "Caminata suave + core", "40 a 60 min a ritmo de conversación y 15 min de core.", listOf("C", "M")),
+        PlanDay(DayOfWeek.WEDNESDAY, DayKind.INTERVALS, "Caminata con intervalos", "5 o 6 bloques de 3 min rápido o en subida y 2 min suave.", listOf("M")),
+        PlanDay(DayOfWeek.THURSDAY, DayKind.STRENGTH, "Fuerza B", "35 min, y movilidad al terminar.", listOf("B", "M")),
+        PlanDay(DayOfWeek.FRIDAY, DayKind.EASY_WALK, "Caminata suave + core", "40 a 60 min a ritmo de conversación y 15 min de core.", listOf("C", "M")),
         if (week >= 7) {
-            PlanDay(DayOfWeek.SATURDAY, DayKind.STRENGTH, "Fuerza A + caminata", "Tercer día de fuerza y caminata cómoda.", "A")
+            PlanDay(DayOfWeek.SATURDAY, DayKind.STRENGTH, "Fuerza A + caminata", "Tercer día de fuerza y caminata cómoda.", listOf("A", "M"))
         } else {
-            PlanDay(DayOfWeek.SATURDAY, DayKind.LONG_WALK, "Caminata larga", "60 a 90 min a ritmo cómodo.")
+            PlanDay(DayOfWeek.SATURDAY, DayKind.LONG_WALK, "Caminata larga", "60 a 90 min a ritmo cómodo.", listOf("M"))
         },
-        PlanDay(DayOfWeek.SUNDAY, DayKind.REST, "Descanso activo", "20 a 30 min de caminata tranquila y 10 min de movilidad."),
+        PlanDay(DayOfWeek.SUNDAY, DayKind.REST, "Descanso activo", "20 a 30 min de caminata tranquila y la movilidad.", listOf("M")),
     )
 }

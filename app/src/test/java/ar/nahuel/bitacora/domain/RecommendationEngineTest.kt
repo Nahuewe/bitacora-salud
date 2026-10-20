@@ -62,18 +62,25 @@ class RecommendationEngineTest {
         assertEquals(Severity.GOOD, engine.evaluate(snapshot(days = days), today).byId("floor")?.severity)
     }
 
+    private fun activeDays(minutes: (Long) -> Long) =
+        (0L..34L).map { DayActivity(today.minusDays(it), 8_000, null, null, activeMinutes = minutes(it)) }
+
     @Test
     fun alertsOnSteepLoadRamp() {
-        val baseline = (7L..34L step 7).map { walk(today.minusDays(it), 100) }
-        val current = (0L..3L).map { walk(today.minusDays(it), 80) }
-        val rec = engine.evaluate(snapshot(sessions = baseline + current), today).byId("ramp")
+        val days = activeDays { if (it <= 6) 120 else 50 }
+        val rec = engine.evaluate(snapshot(days = days), today).byId("ramp")
         assertEquals(Severity.ALERT, rec?.severity)
     }
 
     @Test
     fun doesNotFlagStableLoad() {
-        val sessions = (0L..34L).map { walk(today.minusDays(it), 30) }
-        assertNull(engine.evaluate(snapshot(sessions = sessions), today).byId("ramp"))
+        assertNull(engine.evaluate(snapshot(days = activeDays { 60 }), today).byId("ramp"))
+    }
+
+    @Test
+    fun activeMinutesUseStepBasedEstimate() {
+        val snapshot = snapshot(days = activeDays { 30 })
+        assertEquals(210L, snapshot.activeMinutes(today.minusDays(6), today.plusDays(1)))
     }
 
     @Test
@@ -271,5 +278,24 @@ class GeoTest {
     fun routineEntryRejectsUnknownRoutine() {
         assertNull(ar.nahuel.bitacora.routine.RoutineEntry.parse("2026-10-16|Z"))
         assertEquals("A", ar.nahuel.bitacora.routine.RoutineEntry.parse("2026-10-16|A")?.routineId)
+    }
+}
+
+class RoutinePlanTest {
+    @Test
+    fun everyPlannedRoutineExists() {
+        (1..8).forEach { week ->
+            StrengthProgram.weekPlan(week).flatMap { it.routineIds }.forEach { id ->
+                assertTrue(id, StrengthProgram.routine(id) != null)
+            }
+        }
+    }
+
+    @Test
+    fun coreAndMobilityDoNotCountAsStrength() {
+        val today = LocalDate.of(2026, 10, 20)
+        val snapshot = HealthSnapshot.empty(ZoneId.of("America/Argentina/Catamarca"))
+        val rec = RecommendationEngine().evaluate(snapshot, today, emptyList())
+        assertEquals(Severity.ATTENTION, rec.first { it.id == "strength" }.severity)
     }
 }

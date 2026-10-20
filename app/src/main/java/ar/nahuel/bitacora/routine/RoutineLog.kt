@@ -9,7 +9,7 @@ data class RoutineEntry(val date: LocalDate, val routineId: String) {
 
     companion object {
         const val SEPARATOR = "|"
-        val VALID_IDS = setOf("A", "B")
+        val VALID_IDS = setOf("A", "B", "C", "M")
 
         fun parse(raw: String): RoutineEntry? {
             val id = raw.substringAfter(SEPARATOR, "")

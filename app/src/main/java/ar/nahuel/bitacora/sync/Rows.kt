@@ -31,6 +31,7 @@ data class DailyRow(
     @SerialName("steps") val steps: Long,
     @SerialName("distance_m") val distanceMeters: Double?,
     @SerialName("active_kcal") val activeKilocalories: Double?,
+    @SerialName("active_min") val activeMinutes: Long,
 )
 
 @Serializable
@@ -88,6 +89,7 @@ fun DayActivity.toRow() = DailyRow(
     steps = steps.coerceIn(0, 200_000),
     distanceMeters = tenth(distanceMeters),
     activeKilocalories = tenth(activeKilocalories),
+    activeMinutes = activeMinutes.coerceIn(0, 1440),
 )
 
 fun SleepSession.toRow() = SleepRow(

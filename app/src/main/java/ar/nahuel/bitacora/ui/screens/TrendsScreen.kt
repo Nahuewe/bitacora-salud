@@ -122,11 +122,11 @@ private fun LazyListScope.trends(t: Trends) {
     }
 
     item(key = "load") {
-        SectionHeader("Ejercicio · minutos por semana")
+        SectionHeader("Actividad · minutos activos por semana")
         val ratio = t.loadRatio
         Caption(
             buildString {
-                append("Negro: minutos con pulso promedio de ${limits.intensityHeartRate} ppm o más. Gris: el resto.")
+                append("Gris: minutos con más de 60 pasos por minuto. Negro: minutos de sesiones con pulso promedio de ${limits.intensityHeartRate} ppm o más.")
                 if (ratio != null) {
                     append(" Carga de esta semana contra el promedio del mes anterior: ").append(Format.decimal(ratio)).append("×")
                     append(if (ratio > limits.rampRatio) ", por encima de ${Format.decimal(limits.rampRatio)}× sube el riesgo de lesión." else ", dentro de un rango seguro.")
@@ -146,10 +146,8 @@ private fun LazyListScope.trends(t: Trends) {
                 )
             },
             maxValue = max * 1.1f,
-            reference = 150f,
-            referenceLabel = "150 min",
             labelEvery = 4,
-            description = "Minutos de ejercicio por semana. Esta semana: ${t.weeklyLoad.lastOrNull()?.minutes ?: 0} minutos.",
+            description = "Minutos activos por semana. Esta semana: ${t.weeklyLoad.lastOrNull()?.minutes ?: 0} minutos.",
         )
     }
 

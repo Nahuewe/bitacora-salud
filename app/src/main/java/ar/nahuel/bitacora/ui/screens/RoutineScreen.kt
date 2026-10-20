@@ -67,7 +67,7 @@ fun RoutineScreen(routine: RoutineUi, today: LocalDate, onToggle: (String) -> Un
                 Spacer(Modifier.height(6.dp))
                 Rule(thickness = 3.dp, strong = true)
                 Text(
-                    "Fuerza ${weekEntries.size} de ${StrengthProgram.weekPlan(routine.week).count { it.kind == DayKind.STRENGTH }} esta semana. ${phase.rule}",
+                    weekSummary(routine.week, weekEntries) + " " + phase.rule,
                     style = Type.body,
                     color = ink.ink,
                     modifier = Modifier.padding(top = 14.dp),
@@ -121,9 +121,15 @@ private fun LazyListScope.routineSection(
         val ink = LocalInk.current
         val doneToday = entries.any { it.date == today && it.routineId == routine.id }
         SectionHeader(routine.name, "${routine.minutes} min · ${routine.exercises.size} ejercicios")
+        if (routine.purpose.isNotEmpty()) {
+            Text(routine.purpose, style = Type.body, color = ink.ink, modifier = Modifier.padding(top = 10.dp))
+        }
+        if (routine.format.isNotEmpty()) {
+            Text(routine.format, style = Type.small, color = ink.inkSoft, modifier = Modifier.padding(top = 4.dp))
+        }
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (doneToday) "Registrada hoy. Cuenta para tus notas de la semana." else "Tocá cada ejercicio para ver la técnica.",
+                if (doneToday) "Registrada hoy." else "Tocá cada ejercicio para ver la técnica.",
                 style = Type.small,
                 color = if (doneToday) ink.good else ink.inkSoft,
                 modifier = Modifier.weight(1f).padding(end = 12.dp),
@@ -143,10 +149,13 @@ private fun LazyListScope.routineSection(
 private fun PlanRow(day: PlanDay, date: LocalDate, today: LocalDate, weekEntries: List<RoutineEntry>) {
     val ink = LocalInk.current
     val isToday = date == today
-    val done = day.routineId != null && weekEntries.any { it.date == date }
+    val doneIds = weekEntries.filter { it.date == date }.map { it.routineId }.toSet()
+    val planned = day.routineIds
+    val doneCount = planned.count { it in doneIds }
     val status = when {
-        done -> "hecha"
-        day.kind == DayKind.STRENGTH && date.isBefore(today) -> "pendiente"
+        planned.isNotEmpty() && doneCount == planned.size -> "hecho"
+        doneCount > 0 -> "$doneCount de ${planned.size}"
+        planned.any { it in StrengthProgram.strengthIds } && date.isBefore(today) -> "pendiente"
         isToday -> "hoy"
         else -> ""
     }
@@ -165,12 +174,19 @@ private fun PlanRow(day: PlanDay, date: LocalDate, today: LocalDate, weekEntries
             Column(Modifier.weight(1f)) {
                 Text(day.title, style = Type.body, color = ink.ink, fontWeight = if (day.kind == DayKind.STRENGTH) FontWeight.SemiBold else FontWeight.Normal)
                 Text(day.detail, style = Type.small, color = ink.inkSoft)
+                if (planned.isNotEmpty()) {
+                    Text(
+                        planned.mapNotNull { StrengthProgram.routine(it)?.name }.joinToString(" · "),
+                        style = Type.figureSmall,
+                        color = ink.inkSoft,
+                    )
+                }
             }
             Text(
                 status,
                 style = Type.figureSmall,
                 color = when (status) {
-                    "hecha" -> ink.good
+                    "hecho" -> ink.good
                     "pendiente" -> ink.signal
                     else -> ink.inkSoft
                 },
@@ -263,4 +279,12 @@ private fun DetailBlock(title: String, lines: List<String>, warn: Boolean = fals
             }
         }
     }
+}
+
+private fun weekSummary(week: Int, entries: List<RoutineEntry>): String {
+    val plan = StrengthProgram.weekPlan(week)
+    fun planned(id: String) = plan.count { id in it.routineIds }
+    fun done(ids: Set<String>) = entries.count { it.routineId in ids }
+    val strengthPlanned = plan.count { day -> day.routineIds.any { it in StrengthProgram.strengthIds } }
+    return "Esta semana: fuerza ${done(StrengthProgram.strengthIds)} de $strengthPlanned · core ${done(setOf("C"))} de ${planned("C")} · movilidad ${done(setOf("M"))} de ${planned("M")}."
 }

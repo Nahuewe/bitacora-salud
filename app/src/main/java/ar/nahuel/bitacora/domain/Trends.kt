@@ -86,14 +86,14 @@ object TrendsBuilder {
             val list = sessionsByWeek[start].orEmpty()
             WeekLoad(
                 weekStart = start,
-                minutes = list.sumOf { it.durationMinutes },
+                minutes = snapshot.activeMinutes(start, start.plusDays(7)),
                 intenseMinutes = list.filter { (it.avgHeartRate ?: 0L) >= thresholds.intensityHeartRate }.sumOf { it.durationMinutes },
                 sessions = list.size,
             )
         }
 
-        val acute = minutesBetween(snapshot, today.minusDays(6), today.plusDays(1)).toDouble()
-        val chronic = minutesBetween(snapshot, today.minusDays(34), today.minusDays(6)) / 4.0
+        val acute = snapshot.activeMinutes(today.minusDays(6), today.plusDays(1)).toDouble()
+        val chronic = snapshot.activeMinutes(today.minusDays(34), today.minusDays(6)) / 4.0
         val loadRatio = if (chronic > 0) acute / chronic else null
 
         val walkSpeed = snapshot.sessions
@@ -183,10 +183,14 @@ object TrendsBuilder {
             s.days.filter { range(it.date) }.takeIf { it.isNotEmpty() }?.count { it.steps >= t.stepTarget }?.toDouble()
 
         fun weeklyMinutes(range: (LocalDate) -> Boolean, intenseOnly: Boolean): Double =
-            s.sessions
-                .filter { range(s.localDate(it.start)) }
-                .filter { !intenseOnly || (it.avgHeartRate ?: 0L) >= t.intensityHeartRate }
-                .sumOf { it.durationMinutes } / 4.0
+            if (intenseOnly) {
+                s.sessions
+                    .filter { range(s.localDate(it.start)) }
+                    .filter { (it.avgHeartRate ?: 0L) >= t.intensityHeartRate }
+                    .sumOf { it.durationMinutes } / 4.0
+            } else {
+                s.days.filter { range(it.date) }.sumOf { it.activeMinutes } / 4.0
+            }
 
         fun medianSpeed(range: (LocalDate) -> Boolean): Double? =
             walkSpeed.filter { range(it.date) }.map { it.value }.takeIf { it.isNotEmpty() }?.let(::median)
@@ -205,7 +209,7 @@ object TrendsBuilder {
         return listOf(
             Metric("Pasos por día", avgSteps(::inCurrent), avgSteps(::inPrevious), "", Direction.HIGHER_IS_BETTER),
             Metric("Días sobre ${Format.int(t.stepTarget)}", daysOver(::inCurrent), daysOver(::inPrevious), "de 28", Direction.HIGHER_IS_BETTER),
-            Metric("Ejercicio por semana", weeklyMinutes(::inCurrent, false), weeklyMinutes(::inPrevious, false), "min", Direction.HIGHER_IS_BETTER),
+            Metric("Activo por semana", weeklyMinutes(::inCurrent, false), weeklyMinutes(::inPrevious, false), "min", Direction.HIGHER_IS_BETTER),
             Metric("Intenso por semana", weeklyMinutes(::inCurrent, true), weeklyMinutes(::inPrevious, true), "min", Direction.HIGHER_IS_BETTER),
             Metric("Velocidad caminando", medianSpeed(::inCurrent), medianSpeed(::inPrevious), "km/h", Direction.HIGHER_IS_BETTER, 1),
             Metric("Sueño por noche", avgSleepHours(::inCurrent), avgSleepHours(::inPrevious), "h", Direction.HIGHER_IS_BETTER, 1),
@@ -224,10 +228,6 @@ object TrendsBuilder {
         return count
     }
 
-    private fun minutesBetween(s: HealthSnapshot, fromInclusive: LocalDate, toExclusive: LocalDate): Long =
-        s.sessions
-            .filter { val d = s.localDate(it.start); d >= fromInclusive && d < toExclusive }
-            .sumOf { it.durationMinutes }
 
     private fun minutesFrom(anchor: LocalDateTime, time: LocalDateTime): Long = Duration.between(anchor, time).toMinutes()
 
