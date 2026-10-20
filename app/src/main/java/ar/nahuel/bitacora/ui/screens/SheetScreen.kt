@@ -109,7 +109,7 @@ private fun LazyListScope.loadedSheet(dashboard: Dashboard, notes: List<Recommen
 @Composable
 private fun Summary(dashboard: Dashboard) {
     val ink = LocalInk.current
-    val today = dashboard.days.firstOrNull()
+    val today = dashboard.today
     val week = dashboard.weeks.firstOrNull()
     Column {
     Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

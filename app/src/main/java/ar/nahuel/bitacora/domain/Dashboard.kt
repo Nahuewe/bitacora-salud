@@ -29,6 +29,7 @@ data class SessionWeek(
 )
 
 data class Dashboard(
+    val today: DayActivity?,
     val days: List<DayRow>,
     val weeks: List<WeekRow>,
     val nights: List<NightRow>,
@@ -91,6 +92,7 @@ object DashboardBuilder {
             }
 
         return Dashboard(
+            today = byDate[today],
             days = days,
             weeks = weeks,
             nights = nights,
