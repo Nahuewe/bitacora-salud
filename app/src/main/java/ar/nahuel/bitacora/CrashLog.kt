@@ -9,10 +9,11 @@ class CrashLog(context: Context) {
 
     private val prefs = context.getSharedPreferences("crash_log", Context.MODE_PRIVATE)
 
-    fun install() {
+    fun install(isolate: (Thread, Throwable) -> Boolean = { _, _ -> false }) {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { record(error) }
+            if (runCatching { isolate(thread, error) }.getOrDefault(false)) return@setDefaultUncaughtExceptionHandler
+            runCatching { record(thread, error) }
             previous?.uncaughtException(thread, error)
         }
     }
@@ -26,7 +27,7 @@ class CrashLog(context: Context) {
         prefs.edit().clear().apply()
     }
 
-    private fun record(error: Throwable) {
+    private fun record(thread: Thread, error: Throwable) {
         val root = generateSequence(error) { it.cause }.last()
         val frames = (error.stackTrace.take(4) + root.stackTrace.filter { it.className.startsWith(PACKAGE) }.take(6))
             .distinct()
@@ -35,6 +36,7 @@ class CrashLog(context: Context) {
             append(error.javaClass.simpleName).append(": ").append(error.message.orEmpty().take(MAX_MESSAGE))
             if (root !== error) append("\ncausa: ").append(root.javaClass.simpleName).append(": ").append(root.message.orEmpty().take(MAX_MESSAGE))
             append("\n").append(frames)
+            append("\nhilo: ").append(thread.name.take(40))
             append("\nv").append(BuildConfig.VERSION_NAME)
         }
         prefs.edit()

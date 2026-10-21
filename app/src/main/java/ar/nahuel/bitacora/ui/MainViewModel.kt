@@ -336,7 +336,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(samsung = samsungStatus) }
                 val samsungData = if (samsungStatus == SamsungStatus.Ready) {
                     try {
-                        graph.samsung.load(today.minusDays(DISPLAY_DAYS), today, zone)
+                        graph.samsung.load(today.minusDays(DISPLAY_DAYS), today, zone).let { loaded ->
+                            if (loaded.failed.isNotEmpty()) {
+                                val detail = loaded.fault?.let { " ($it)" }.orEmpty()
+                                val message = if (loaded.usable) {
+                                    "Samsung Health no entregó: ${loaded.failed.joinToString(", ")}$detail. Eso lo completo con Health Connect."
+                                } else {
+                                    "Samsung Health no pudo entregar datos$detail. Uso Health Connect."
+                                }
+                                _state.update { it.copy(samsung = SamsungStatus.Unavailable(message)) }
+                            }
+                            loaded.takeIf { it.usable }
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {

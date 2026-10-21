@@ -96,7 +96,7 @@ class SyncService(
             val hcSessions = health.exerciseSessions(windowStart, windowEnd, heart)
             val samsungData = if (!samsung.paused() && samsung.status() == SamsungStatus.Ready) {
                 try {
-                    samsung.load(dailyFrom, today, zone)
+                    samsung.load(dailyFrom, today, zone).takeIf { it.failed.isEmpty() }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

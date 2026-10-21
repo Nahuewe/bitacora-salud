@@ -2,6 +2,7 @@ package ar.nahuel.bitacora
 
 import android.app.Application
 import android.content.Context
+import android.os.Looper
 import ar.nahuel.bitacora.domain.RecommendationEngine
 import ar.nahuel.bitacora.health.HealthConnectSource
 import ar.nahuel.bitacora.remote.AuthRepository
@@ -10,6 +11,7 @@ import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineLog
 import ar.nahuel.bitacora.routes.RouteImporter
 import ar.nahuel.bitacora.routes.RouteStore
+import ar.nahuel.bitacora.samsung.SamsungFaults
 import ar.nahuel.bitacora.samsung.SamsungHealthSource
 import ar.nahuel.bitacora.sync.SyncService
 import ar.nahuel.bitacora.sync.SyncState
@@ -43,7 +45,15 @@ class BitacoraApplication : Application() {
         super.onCreate()
         graph = AppGraph(this)
         graph.crashLog.last()?.let { graph.samsung.pauseAfterCrash(it.at.toEpochMilli()) }
-        graph.crashLog.install()
+        graph.crashLog.install { thread, error ->
+            val offMain = thread !== Looper.getMainLooper().thread
+            if (offMain && SamsungFaults.isSamsung(error)) {
+                SamsungFaults.report(error)
+                true
+            } else {
+                false
+            }
+        }
         SyncWorker.schedule(this)
     }
 }

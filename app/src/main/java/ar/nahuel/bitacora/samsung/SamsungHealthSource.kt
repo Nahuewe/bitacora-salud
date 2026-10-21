@@ -43,7 +43,13 @@ data class SamsungActivity(
     val days: List<DayActivity>,
     val sessions: List<ExerciseSession>,
     val routes: List<Route>,
-)
+    val failed: List<String> = emptyList(),
+    val fault: String? = null,
+) {
+    val usable: Boolean get() = failed.size < PARTS
+}
+
+private const val PARTS = 5
 
 class SamsungHealthSource(private val context: Context) {
 
@@ -73,8 +79,12 @@ class SamsungHealthSource(private val context: Context) {
     suspend fun status(): SamsungStatus = if (paused()) {
         SamsungStatus.Paused(PAUSED_MESSAGE)
     } else try {
-        val granted = store().getGrantedPermissions(permissions)
+        val granted = SamsungFaults.guarded(CALL_TIMEOUT_MS) { store().getGrantedPermissions(permissions) }
         if (granted.containsAll(permissions)) SamsungStatus.Ready else SamsungStatus.NeedsPermission
+    } catch (e: SamsungFault) {
+        SamsungStatus.Unavailable(faultMessage(e.error))
+    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+        SamsungStatus.Unavailable("Samsung Health no respondió a tiempo.")
     } catch (e: CancellationException) {
         throw e
     } catch (e: ResolvablePlatformException) {
@@ -106,10 +116,32 @@ class SamsungHealthSource(private val context: Context) {
 
     suspend fun load(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): SamsungActivity {
         val filter = LocalTimeFilter.of(from.atStartOfDay(), toInclusive.plusDays(1).atStartOfDay())
-        val steps = daily(DataType.StepsType.TOTAL, filter)
-        val activeTime = daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME, filter)
-        val distance = daily(DataType.ActivitySummaryType.TOTAL_DISTANCE, filter)
-        val calories = daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED, filter)
+        val failed = mutableListOf<String>()
+        var fault: Throwable? = null
+        suspend fun <T> part(label: String, empty: T, block: suspend () -> T): T = try {
+            SamsungFaults.guarded(CALL_TIMEOUT_MS) { block() }
+        } catch (e: SamsungFault) {
+            failed += label
+            fault = e.error
+            empty
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            failed += label
+            empty
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed += label
+            fault = e
+            empty
+        } catch (e: LinkageError) {
+            failed += label
+            fault = e
+            empty
+        }
+        val steps = part("pasos", emptyMap()) { daily(DataType.StepsType.TOTAL, filter) }
+        val activeTime = part("tiempo activo", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME, filter) }
+        val distance = part("distancia", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_DISTANCE, filter) }
+        val calories = part("calorías", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED, filter) }
 
         val dates = (steps.keys + activeTime.keys).filter { !it.isBefore(from) && !it.isAfter(toInclusive) }.sortedBy { it.toEpochDay() }
         val days = dates.map { date ->
@@ -125,7 +157,7 @@ class SamsungHealthSource(private val context: Context) {
 
         val sessions = mutableListOf<ExerciseSession>()
         val routes = mutableListOf<Route>()
-        exercisePoints(filter).distinctBy { it.uid ?: it.startTime.toEpochMilli().toString() }.forEach { point ->
+        part("caminatas", emptyList()) { exercisePoints(filter) }.distinctBy { it.uid ?: it.startTime.toEpochMilli().toString() }.forEach { point ->
             val predefined = point.getValue(DataType.ExerciseType.EXERCISE_TYPE)
             val title = point.getValue(DataType.ExerciseType.CUSTOM_TITLE)
             point.getValue(DataType.ExerciseType.SESSIONS).orEmpty().forEachIndexed { index, session ->
@@ -158,7 +190,13 @@ class SamsungHealthSource(private val context: Context) {
                 }
             }
         }
-        return SamsungActivity(days, sessions.distinctBy { it.id }.sortedBy { it.start }, routes.distinctBy { it.id })
+        return SamsungActivity(
+            days = days,
+            sessions = sessions.distinctBy { it.id }.sortedBy { it.start },
+            routes = routes.distinctBy { it.id },
+            failed = failed,
+            fault = fault?.let(::summary),
+        )
     }
 
     private suspend fun <T : Any> daily(
@@ -193,6 +231,9 @@ class SamsungHealthSource(private val context: Context) {
         } while (token != null)
         return out
     }
+
+    private fun faultMessage(error: Throwable): String =
+        "Samsung Health falló dentro de su SDK (${summary(error).substringBefore(':')}). Uso Health Connect."
 
     private fun describe(e: HealthDataException): String = when (e.errorCode) {
         com.samsung.android.sdk.health.data.error.ErrorCode.ERR_PLATFORM_NOT_INSTALLED -> "Samsung Health no está instalado."
@@ -235,6 +276,7 @@ class SamsungHealthSource(private val context: Context) {
         private const val PAGE_SIZE = 1000
         private const val EXERCISE_PAGE_SIZE = 200
         private const val MIN_ROUTE_POINTS = 5
+        private const val CALL_TIMEOUT_MS = 20_000L
         private const val KEY_PAUSED = "paused"
         private const val KEY_RESUMED_AT = "resumed_at"
         private const val CRASH_WINDOW_MS = 10L * 60 * 1000
