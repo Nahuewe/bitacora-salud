@@ -324,4 +324,10 @@ class SamsungMergeTest {
         val merged = ar.nahuel.bitacora.samsung.mergeSessions(listOf(session("sh:1:0", 1)), listOf(session("hc-1", 0)))
         assertEquals(listOf("hc-1"), merged.map { it.id })
     }
+
+    @Test
+    fun repeatedSamsungSessionsCollapseToOneRow() {
+        val merged = ar.nahuel.bitacora.samsung.mergeSessions(listOf(session("sh:1:0", 1), session("sh:1:0", 1)), emptyList())
+        assertEquals(listOf("sh:1:0"), merged.map { it.id })
+    }
 }

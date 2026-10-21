@@ -95,6 +95,7 @@ fun SettingsScreen(
                 SamsungStatus.NeedsPermission -> "Falta autorizar la lectura. Sin esto, la app usa Health Connect, que puede no tener todos los pasos del reloj."
                 is SamsungStatus.NeedsResolution -> samsung.message
                 is SamsungStatus.Unavailable -> samsung.message + " Mientras tanto uso Health Connect."
+                is SamsungStatus.Paused -> samsung.message + " Mientras tanto uso Health Connect."
                 null -> "Revisando…"
             },
             style = Type.body,
@@ -102,7 +103,7 @@ fun SettingsScreen(
             modifier = Modifier.padding(vertical = 14.dp),
         )
         if (samsung != SamsungStatus.Ready) {
-            LedgerButton("Conectar Samsung Health", onConnectSamsung, filled = true)
+            LedgerButton(if (samsung is SamsungStatus.Paused) "Reintentar Samsung Health" else "Conectar Samsung Health", onConnectSamsung, filled = true)
         }
 
         SectionHeader("Sincronización")

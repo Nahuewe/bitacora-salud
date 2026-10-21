@@ -42,6 +42,7 @@ class BitacoraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         graph = AppGraph(this)
+        graph.crashLog.last()?.let { graph.samsung.pauseAfterCrash(it.at.toEpochMilli()) }
         graph.crashLog.install()
         SyncWorker.schedule(this)
     }

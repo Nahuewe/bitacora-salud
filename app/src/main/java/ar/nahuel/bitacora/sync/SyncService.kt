@@ -94,12 +94,14 @@ class SyncService(
             val hcDays = health.dailyActivity(dailyFrom, today)
             val heart = health.heartRateSamples(windowStart, windowEnd)
             val hcSessions = health.exerciseSessions(windowStart, windowEnd, heart)
-            val samsungData = if (samsung.status() == SamsungStatus.Ready) {
+            val samsungData = if (!samsung.paused() && samsung.status() == SamsungStatus.Ready) {
                 try {
                     samsung.load(dailyFrom, today, zone)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    null
+                } catch (e: LinkageError) {
                     null
                 }
             } else {

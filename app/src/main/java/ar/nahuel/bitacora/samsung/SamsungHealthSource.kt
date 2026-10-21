@@ -36,6 +36,7 @@ sealed interface SamsungStatus {
     data object NeedsPermission : SamsungStatus
     data class NeedsResolution(val message: String) : SamsungStatus
     data class Unavailable(val message: String) : SamsungStatus
+    data class Paused(val message: String) : SamsungStatus
 }
 
 data class SamsungActivity(
@@ -47,6 +48,18 @@ data class SamsungActivity(
 class SamsungHealthSource(private val context: Context) {
 
     private var store: HealthDataStore? = null
+    private val prefs = context.getSharedPreferences("samsung_guard", Context.MODE_PRIVATE)
+
+    fun paused(): Boolean = prefs.getBoolean(KEY_PAUSED, false)
+
+    fun pauseAfterCrash(crashAtMs: Long, nowMs: Long = System.currentTimeMillis()) {
+        val afterResume = crashAtMs > prefs.getLong(KEY_RESUMED_AT, 0L)
+        if (afterResume && nowMs - crashAtMs in 0..CRASH_WINDOW_MS) prefs.edit().putBoolean(KEY_PAUSED, true).commit()
+    }
+
+    private fun resume() {
+        prefs.edit().putBoolean(KEY_PAUSED, false).putLong(KEY_RESUMED_AT, System.currentTimeMillis()).commit()
+    }
 
     private val permissions: Set<Permission> = setOf(
         Permission.of(DataTypes.STEPS, AccessType.READ),
@@ -57,7 +70,9 @@ class SamsungHealthSource(private val context: Context) {
 
     private fun store(): HealthDataStore = store ?: HealthDataService.getStore(context.applicationContext).also { store = it }
 
-    suspend fun status(): SamsungStatus = try {
+    suspend fun status(): SamsungStatus = if (paused()) {
+        SamsungStatus.Paused(PAUSED_MESSAGE)
+    } else try {
         val granted = store().getGrantedPermissions(permissions)
         if (granted.containsAll(permissions)) SamsungStatus.Ready else SamsungStatus.NeedsPermission
     } catch (e: CancellationException) {
@@ -68,9 +83,12 @@ class SamsungHealthSource(private val context: Context) {
         SamsungStatus.Unavailable(describe(e))
     } catch (e: Exception) {
         SamsungStatus.Unavailable("No se pudo conectar con Samsung Health (${e.javaClass.simpleName}).")
+    } catch (e: LinkageError) {
+        SamsungStatus.Unavailable("Esta versión de Samsung Health no es compatible con la app (${e.javaClass.simpleName}).")
     }
 
     suspend fun connect(activity: Activity): SamsungStatus = try {
+        resume()
         val granted = store().requestPermissions(permissions, activity)
         if (granted.containsAll(permissions)) SamsungStatus.Ready else SamsungStatus.NeedsPermission
     } catch (e: CancellationException) {
@@ -82,6 +100,8 @@ class SamsungHealthSource(private val context: Context) {
         SamsungStatus.Unavailable(describe(e))
     } catch (e: Exception) {
         SamsungStatus.Unavailable("No se pudo conectar con Samsung Health (${e.javaClass.simpleName}).")
+    } catch (e: LinkageError) {
+        SamsungStatus.Unavailable("Esta versión de Samsung Health no es compatible con la app (${e.javaClass.simpleName}).")
     }
 
     suspend fun load(from: LocalDate, toInclusive: LocalDate, zone: ZoneId): SamsungActivity {
@@ -105,11 +125,12 @@ class SamsungHealthSource(private val context: Context) {
 
         val sessions = mutableListOf<ExerciseSession>()
         val routes = mutableListOf<Route>()
-        exercisePoints(filter).forEach { point ->
+        exercisePoints(filter).distinctBy { it.uid ?: it.startTime.toEpochMilli().toString() }.forEach { point ->
             val predefined = point.getValue(DataType.ExerciseType.EXERCISE_TYPE)
             val title = point.getValue(DataType.ExerciseType.CUSTOM_TITLE)
             point.getValue(DataType.ExerciseType.SESSIONS).orEmpty().forEachIndexed { index, session ->
-                val id = "sh:${point.uid}:$index"
+                if (!session.endTime.isAfter(session.startTime)) return@forEachIndexed
+                val id = "sh:${point.uid ?: session.startTime.toEpochMilli()}:$index"
                 val type = session.exerciseType ?: predefined
                 val kind = kindOf(type?.name)
                 sessions += ExerciseSession(
@@ -137,7 +158,7 @@ class SamsungHealthSource(private val context: Context) {
                 }
             }
         }
-        return SamsungActivity(days, sessions.sortedBy { it.start }, routes)
+        return SamsungActivity(days, sessions.distinctBy { it.id }.sortedBy { it.start }, routes.distinctBy { it.id })
     }
 
     private suspend fun <T : Any> daily(
@@ -214,6 +235,10 @@ class SamsungHealthSource(private val context: Context) {
         private const val PAGE_SIZE = 1000
         private const val EXERCISE_PAGE_SIZE = 200
         private const val MIN_ROUTE_POINTS = 5
+        private const val KEY_PAUSED = "paused"
+        private const val KEY_RESUMED_AT = "resumed_at"
+        private const val CRASH_WINDOW_MS = 10L * 60 * 1000
+        private const val PAUSED_MESSAGE = "La app se cerró sola la última vez. Pausé la lectura de Samsung Health para que puedas entrar; el detalle quedó en Ajustes."
     }
 }
 
@@ -231,7 +256,7 @@ fun mergeSessions(primary: List<ExerciseSession>, fallback: List<ExerciseSession
         }
     }
     val extra = fallback.filter { it.id !in used && aligned.none { s -> overlaps(s, it) } }
-    return (aligned + extra).sortedBy { it.start }
+    return (aligned + extra).distinctBy { it.id }.sortedBy { it.start }
 }
 
 private fun overlaps(a: ExerciseSession, b: ExerciseSession): Boolean =

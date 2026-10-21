@@ -80,11 +80,12 @@ private fun SamsungNote(status: SamsungStatus, onConnect: () -> Unit) {
         SamsungStatus.NeedsPermission -> "Conectá Samsung Health para leer los pasos y caminatas del reloj."
         is SamsungStatus.NeedsResolution -> status.message
         is SamsungStatus.Unavailable -> status.message
+        is SamsungStatus.Paused -> status.message
         SamsungStatus.Ready -> ""
     }
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = Type.small, color = ink.signal, modifier = Modifier.weight(1f).padding(end = 12.dp))
-        if (status !is SamsungStatus.Unavailable) LedgerButton("Conectar", onConnect)
+        if (status !is SamsungStatus.Unavailable) LedgerButton(if (status is SamsungStatus.Paused) "Reintentar" else "Conectar", onConnect)
     }
 }
 

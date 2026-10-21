@@ -342,6 +342,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     } catch (e: Exception) {
                         _state.update { it.copy(samsung = SamsungStatus.Unavailable("Samsung Health no respondió (${e.javaClass.simpleName}). Uso Health Connect.")) }
                         null
+                    } catch (e: LinkageError) {
+                        _state.update { it.copy(samsung = SamsungStatus.Unavailable("Samsung Health no es compatible (${e.javaClass.simpleName}). Uso Health Connect.")) }
+                        null
                     }
                 } else {
                     null
