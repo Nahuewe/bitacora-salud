@@ -101,6 +101,7 @@ data class MapData(
     val checked: Int = 0,
     val withoutRoute: Int = 0,
     val routePermission: Boolean = false,
+    val fromSamsung: Int = 0,
 )
 
 sealed interface MapState {
@@ -224,7 +225,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             zones = Geo.zones(tracks),
                             speedBreaks = Geo.breaks(segments.map { it.speedKmh }),
                             heartBreaks = Geo.breaks(segments.mapNotNull { it.heartRate?.toDouble() }),
-                            fromHealthConnect = hcRoutes.size,
+                            fromHealthConnect = fromHc?.routes.orEmpty().size,
+                            fromSamsung = samsung.size,
                             imported = importedOnly.size,
                             consentRequired = fromHc?.consentRequired ?: 0,
                             consentIds = fromHc?.consentIds.orEmpty(),

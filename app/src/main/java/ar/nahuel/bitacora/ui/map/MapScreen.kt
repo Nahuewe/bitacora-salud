@@ -45,11 +45,21 @@ import ar.nahuel.bitacora.ui.components.LedgerButton
 import ar.nahuel.bitacora.ui.components.Rule
 import ar.nahuel.bitacora.ui.theme.LocalInk
 import ar.nahuel.bitacora.ui.theme.Type
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import ar.nahuel.bitacora.domain.RouteTrack
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.TextStyle
 import kotlin.math.roundToLong
 
-private enum class Period(val label: String, val days: Long?) { MONTH("30 días", 30), QUARTER("90 días", 90), ALL("Todo", null) }
+private const val LATEST = "latest"
+private const val ALL = "all"
+
+private data class WalkDay(val date: LocalDate, val tracks: List<RouteTrack>) {
+    val km: Double get() = tracks.sumOf { it.route.distanceMeters } / 1000
+}
 
 @Composable
 fun MapScreen(
@@ -66,7 +76,7 @@ fun MapScreen(
     BackHandler(onBack = onBack)
     var mode by rememberSaveable { mutableStateOf(MapMode.LINES) }
     var metric by rememberSaveable { mutableStateOf(MapMetric.SPEED) }
-    var period by rememberSaveable { mutableStateOf(Period.QUARTER) }
+    var daySelection by rememberSaveable { mutableStateOf(LATEST) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(modifier.fillMaxSize().background(ink.paper)) {
@@ -99,16 +109,29 @@ fun MapScreen(
                 if (data.tracks.isEmpty()) {
                     EmptyRoutes(data, state.message, onImport, onRequestRoutes, onConsent)
                 } else {
-                    val tracks = remember(data, period) {
-                        val cutoff = period.days?.let { Instant.now().minus(it, ChronoUnit.DAYS) }
-                        data.tracks.filter { cutoff == null || it.route.start.isAfter(cutoff) }
+                    val zone = ZoneId.systemDefault()
+                    val days = remember(data) {
+                        data.tracks.groupBy { it.route.start.atZone(zone).toLocalDate() }
+                            .map { (date, list) -> WalkDay(date, list.sortedBy { it.route.start }) }
+                            .sortedByDescending { it.date.toEpochDay() }
                     }
+                    val selectedDay = when (daySelection) {
+                        ALL -> null
+                        LATEST -> days.firstOrNull()
+                        else -> days.firstOrNull { it.date.toString() == daySelection } ?: days.firstOrNull()
+                    }
+                    val tracks = selectedDay?.tracks ?: data.tracks
                     val zones = remember(tracks, mode) { if (mode == MapMode.ZONES) Geo.zones(tracks) else emptyList() }
                     val breaks = if (metric == MapMetric.SPEED) data.speedBreaks else data.heartBreaks
 
-                    Controls(mode, { mode = it; selected = null }, metric, { metric = it; selected = null }, period, { period = it; selected = null })
+                    Controls(mode, { mode = it; selected = null }, metric, { metric = it; selected = null })
+                    DayRibbon(days, selectedDay?.date, data.tracks.size) { date ->
+                        daySelection = date?.toString() ?: ALL
+                        selected = null
+                    }
                     Box(Modifier.weight(1f).fillMaxWidth().semantics { contentDescription = "Mapa con ${tracks.size} recorridos" }) {
                         RouteMap(
+                            key = selectedDay?.date?.toString() ?: ALL,
                             tracks = tracks,
                             zones = zones,
                             mode = mode,
@@ -122,14 +145,14 @@ fun MapScreen(
                     Legend(metric, breaks)
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(
-                            selected ?: "Tocá una línea o una zona para ver su velocidad y su pulso.",
+                            selected ?: daySummary(selectedDay, tracks),
                             style = Type.body,
                             color = if (selected != null) ink.ink else ink.inkSoft,
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                         )
                         state.message?.let { Text(it, style = Type.small, color = ink.inkSoft, modifier = Modifier.padding(top = 4.dp)) }
                         Text(
-                            "${tracks.size} recorridos · ${Format.decimal(tracks.sumOf { it.route.distanceMeters } / 1000)} km" +
+                            "Tocá una línea o una zona para ver su velocidad y su pulso." +
                                 (if (data.consentRequired > 0) " · ${data.consentRequired} sin permiso" else ""),
                             style = Type.figureSmall,
                             color = ink.inkSoft,
@@ -184,18 +207,66 @@ private fun Controls(
     onMode: (MapMode) -> Unit,
     metric: MapMetric,
     onMetric: (MapMetric) -> Unit,
-    period: Period,
-    onPeriod: (Period) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Segmented(listOf(MapMetric.SPEED to "Velocidad", MapMetric.HEART_RATE to "Pulso"), metric, onMetric)
-            Spacer(Modifier.width(10.dp))
-            Segmented(listOf(MapMode.LINES to "Líneas", MapMode.ZONES to "Zonas"), mode, onMode)
-        }
-        Spacer(Modifier.height(8.dp))
-        Segmented(Period.values().map { it to it.label }, period, onPeriod)
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Segmented(listOf(MapMetric.SPEED to "Velocidad", MapMetric.HEART_RATE to "Pulso"), metric, onMetric)
+        Spacer(Modifier.width(10.dp))
+        Segmented(listOf(MapMode.LINES to "Líneas", MapMode.ZONES to "Zonas"), mode, onMode)
     }
+}
+
+@Composable
+private fun DayRibbon(days: List<WalkDay>, selected: LocalDate?, total: Int, onSelect: (LocalDate?) -> Unit) {
+    val ink = LocalInk.current
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).selectableGroup(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+    ) {
+        item(key = ALL) {
+            DayCell("Todos", "$total recorridos", "120 días", selected == null, Modifier) { onSelect(null) }
+        }
+        items(days, key = { it.date.toString() }) { day ->
+            val month = day.date.month.getDisplayName(TextStyle.SHORT, Format.locale).trimEnd('.')
+            val walks = if (day.tracks.size == 1) "1 caminata" else "${day.tracks.size} caminatas"
+            DayCell(Format.shortDay(day.date), "${Format.decimal(day.km)} km", "$month · $walks", day.date == selected, Modifier) {
+                onSelect(day.date)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayCell(title: String, figure: String, caption: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val ink = LocalInk.current
+    Column(
+        modifier
+            .padding(end = 6.dp)
+            .border(1.dp, if (active) ink.ink else ink.rule)
+            .background(if (active) ink.ink else ink.paper)
+            .selectable(selected = active, role = Role.RadioButton, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(title, style = Type.small, color = if (active) ink.paper else ink.ink)
+        Text(figure, style = Type.figureSmall, color = if (active) ink.paper else ink.ink)
+        Text(caption, style = Type.small, color = if (active) ink.paper else ink.inkSoft)
+    }
+}
+
+private fun daySummary(day: WalkDay?, tracks: List<RouteTrack>): String {
+    val km = tracks.sumOf { it.route.distanceMeters } / 1000
+    val segments = tracks.flatMap { it.segments }
+    val speed = segments.map { it.speedKmh }.takeIf { it.isNotEmpty() }?.average()
+    val heart = segments.mapNotNull { it.heartRate }.takeIf { it.isNotEmpty() }?.average()
+    val head = if (day == null) {
+        "${tracks.size} recorridos"
+    } else {
+        Format.longDay(day.date).replaceFirstChar { it.uppercase() } + " " + day.date.month.getDisplayName(TextStyle.FULL, Format.locale) +
+            " · " + if (tracks.size == 1) "1 caminata" else "${tracks.size} caminatas"
+    }
+    return head + " · ${Format.decimal(km)} km" +
+        (speed?.let { " · ${Format.decimal(it)} km/h de media" } ?: "") +
+        (heart?.let { " · ${it.roundToLong()} ppm de media" } ?: "")
 }
 
 @Composable
@@ -271,12 +342,17 @@ private fun EmptyRoutes(data: MapData, message: String?, onImport: () -> Unit, o
 }
 
 private fun diagnosis(data: MapData): String = buildString {
-    append("Revisé ${data.checked} caminatas de los últimos 120 días en Health Connect: ")
-    append("${data.fromHealthConnect} con recorrido")
-    if (data.consentRequired > 0) append(", ${data.consentRequired} esperan tu autorización")
-    append(", ${data.withoutRoute} sin GPS compartido.")
+    if (data.fromSamsung > 0) {
+        append("${data.fromSamsung} recorridos vienen del reloj, por Samsung Health, con el pulso de cada tramo.")
+        if (data.fromHealthConnect > 0) append(" ${data.fromHealthConnect} más desde Health Connect.")
+    } else {
+        append("Revisé ${data.checked} caminatas de los últimos 120 días en Health Connect: ")
+        append("${data.fromHealthConnect} con recorrido")
+        if (data.consentRequired > 0) append(", ${data.consentRequired} esperan tu autorización")
+        append(", ${data.withoutRoute} sin GPS compartido.")
+        if (!data.routePermission) append(" Falta el permiso de recorridos.")
+    }
     if (data.imported > 0) append(" Además hay ${data.imported} importadas de la exportación.")
-    if (!data.routePermission) append(" Falta el permiso de recorridos.")
 }
 
 @Composable

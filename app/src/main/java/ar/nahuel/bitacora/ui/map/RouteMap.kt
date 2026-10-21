@@ -5,6 +5,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,6 +37,7 @@ private val dayFormat = DateTimeFormatter.ofPattern("dd/MM")
 
 @Composable
 fun RouteMap(
+    key: String,
     tracks: List<RouteTrack>,
     zones: List<Zone>,
     mode: MapMode,
@@ -46,7 +48,7 @@ fun RouteMap(
     modifier: Modifier = Modifier,
 ) {
     AndroidView(
-        modifier = modifier,
+        modifier = modifier.clipToBounds(),
         factory = { context ->
             Configuration.getInstance().apply {
                 userAgentValue = BuildConfig.APPLICATION_ID
@@ -64,7 +66,7 @@ fun RouteMap(
         },
         update = { map ->
             map.overlayManager.tilesOverlay.setColorFilter(tileFilter(dark))
-            render(map, tracks, zones, mode, metric, breaks, onSelect)
+            render(map, key, tracks, zones, mode, metric, breaks, onSelect)
         },
         onRelease = { it.onDetach() },
     )
@@ -88,6 +90,7 @@ private fun value(segment: Segment, metric: MapMetric): Double? = when (metric) 
 
 private fun render(
     map: MapView,
+    selection: String,
     tracks: List<RouteTrack>,
     zones: List<Zone>,
     mode: MapMode,
@@ -95,7 +98,7 @@ private fun render(
     breaks: List<Double>,
     onSelect: (String) -> Unit,
 ) {
-    val key = listOf(tracks.size, tracks.firstOrNull()?.route?.id, tracks.lastOrNull()?.route?.id, mode, metric).joinToString()
+    val key = listOf(selection, tracks.size, tracks.firstOrNull()?.route?.id, tracks.lastOrNull()?.route?.id).joinToString()
     val previous = map.tag as? String
     map.overlays.clear()
     val density = map.context.resources.displayMetrics.density
@@ -151,8 +154,12 @@ private fun render(
         map.tag = key
         val points = tracks.flatMap { t -> t.route.points.map { GeoPoint(it.lat, it.lon) } }
         if (points.size >= 2) {
-            val box = BoundingBox.fromGeoPointsSafe(points)
-            map.post { map.zoomToBoundingBox(box.increaseByScale(1.15f), false) }
+            val box = BoundingBox.fromGeoPointsSafe(points).increaseByScale(1.2f)
+            if (map.width > 0 && map.height > 0) {
+                map.post { map.zoomToBoundingBox(box, false) }
+            } else {
+                map.addOnFirstLayoutListener { _, _, _, _, _ -> map.zoomToBoundingBox(box, false) }
+            }
         }
     }
     map.invalidate()
