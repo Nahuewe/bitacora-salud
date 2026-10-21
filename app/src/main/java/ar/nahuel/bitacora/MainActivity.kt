@@ -39,6 +39,12 @@ class MainActivity : ComponentActivity() {
 
     private var pendingRouteId: String? = null
 
+    private val samsungConnectLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        lifecycleScope.launch {
+            viewModel.onSamsungStatus((application as BitacoraApplication).graph.samsung.afterConnect(result.data))
+        }
+    }
+
     private val routeConsentLauncher = registerForActivityResult(ExerciseRouteRequestContract()) { route ->
         pendingRouteId?.let { viewModel.onRouteConsent(it, route) }
         pendingRouteId = null
@@ -59,10 +65,7 @@ class MainActivity : ComponentActivity() {
             clearRoutes = viewModel::clearImportedRoutes,
             retryMap = { viewModel.loadMap() },
             connectSamsung = {
-                lifecycleScope.launch {
-                    val status = (application as BitacoraApplication).graph.samsung.connect(this@MainActivity)
-                    viewModel.onSamsungStatus(status)
-                }
+                samsungConnectLauncher.launch((application as BitacoraApplication).graph.samsung.connectIntent())
             },
             consentRoute = { id ->
                 pendingRouteId = id

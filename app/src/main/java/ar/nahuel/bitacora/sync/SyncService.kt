@@ -10,7 +10,7 @@ import ar.nahuel.bitacora.remote.AuthSession
 import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineEntry
 import ar.nahuel.bitacora.routine.RoutineLog
-import ar.nahuel.bitacora.samsung.SamsungHealthSource
+import ar.nahuel.bitacora.samsung.SamsungClient
 import ar.nahuel.bitacora.samsung.SamsungStatus
 import ar.nahuel.bitacora.samsung.mergeSessions
 import java.time.Duration
@@ -44,7 +44,7 @@ class SyncService(
     private val state: SyncState,
     private val json: Json,
     private val routines: RoutineLog,
-    private val samsung: SamsungHealthSource,
+    private val samsung: SamsungClient,
 ) {
     private val lock = Mutex()
 

@@ -54,19 +54,6 @@ private const val PARTS = 5
 class SamsungHealthSource(private val context: Context) {
 
     private var store: HealthDataStore? = null
-    private val prefs = context.getSharedPreferences("samsung_guard", Context.MODE_PRIVATE)
-
-    fun paused(): Boolean = prefs.getBoolean(KEY_PAUSED, false)
-
-    fun pauseAfterCrash(crashAtMs: Long, nowMs: Long = System.currentTimeMillis()) {
-        val afterResume = crashAtMs > prefs.getLong(KEY_RESUMED_AT, 0L)
-        if (afterResume && nowMs - crashAtMs in 0..CRASH_WINDOW_MS) prefs.edit().putBoolean(KEY_PAUSED, true).commit()
-    }
-
-    private fun resume() {
-        prefs.edit().putBoolean(KEY_PAUSED, false).putLong(KEY_RESUMED_AT, System.currentTimeMillis()).commit()
-    }
-
     private val permissions: Set<Permission> = setOf(
         Permission.of(DataTypes.STEPS, AccessType.READ),
         Permission.of(DataTypes.ACTIVITY_SUMMARY, AccessType.READ),
@@ -76,9 +63,7 @@ class SamsungHealthSource(private val context: Context) {
 
     private fun store(): HealthDataStore = store ?: HealthDataService.getStore(context.applicationContext).also { store = it }
 
-    suspend fun status(): SamsungStatus = if (paused()) {
-        SamsungStatus.Paused(PAUSED_MESSAGE)
-    } else try {
+    suspend fun status(): SamsungStatus = try {
         val granted = SamsungFaults.guarded(CALL_TIMEOUT_MS) { store().getGrantedPermissions(permissions) }
         if (granted.containsAll(permissions)) SamsungStatus.Ready else SamsungStatus.NeedsPermission
     } catch (e: SamsungFault) {
@@ -98,7 +83,6 @@ class SamsungHealthSource(private val context: Context) {
     }
 
     suspend fun connect(activity: Activity): SamsungStatus = try {
-        resume()
         val granted = store().requestPermissions(permissions, activity)
         if (granted.containsAll(permissions)) SamsungStatus.Ready else SamsungStatus.NeedsPermission
     } catch (e: CancellationException) {
@@ -277,10 +261,6 @@ class SamsungHealthSource(private val context: Context) {
         private const val EXERCISE_PAGE_SIZE = 200
         private const val MIN_ROUTE_POINTS = 5
         private const val CALL_TIMEOUT_MS = 20_000L
-        private const val KEY_PAUSED = "paused"
-        private const val KEY_RESUMED_AT = "resumed_at"
-        private const val CRASH_WINDOW_MS = 10L * 60 * 1000
-        private const val PAUSED_MESSAGE = "La app se cerró sola la última vez. Pausé la lectura de Samsung Health para que puedas entrar; el detalle quedó en Ajustes."
     }
 }
 

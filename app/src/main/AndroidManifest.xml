@@ -46,6 +46,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".samsung.SamsungConnectActivity"
+            android:exported="false"
+            android:process=":samsung"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name=".samsung.SamsungService"
+            android:exported="false"
+            android:process=":samsung" />
+
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"
