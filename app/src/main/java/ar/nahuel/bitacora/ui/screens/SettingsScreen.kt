@@ -50,6 +50,7 @@ fun SettingsScreen(
     backgroundGranted: Boolean,
     historyGranted: Boolean,
     crash: CrashReport?,
+    samsungDiagnostics: String?,
     onClearCrash: () -> Unit,
     samsung: SamsungStatus?,
     onConnectSamsung: () -> Unit,
@@ -94,14 +95,19 @@ fun SettingsScreen(
                 SamsungStatus.Ready -> "Conectado. Los pasos, el tiempo activo y las caminatas con su recorrido salen directo de Samsung Health, con lo que mide el reloj."
                 SamsungStatus.NeedsPermission -> "Falta autorizar la lectura. Sin esto, la app usa Health Connect, que puede no tener todos los pasos del reloj."
                 is SamsungStatus.NeedsResolution -> samsung.message
-                is SamsungStatus.Unavailable -> samsung.message + " Mientras tanto uso Health Connect."
-                is SamsungStatus.Paused -> samsung.message + " Mientras tanto uso Health Connect."
+                is SamsungStatus.Unavailable -> samsung.message
+                is SamsungStatus.Paused -> samsung.message
                 null -> "Revisando…"
             },
             style = Type.body,
             color = if (samsung == SamsungStatus.Ready) ink.good else ink.inkSoft,
             modifier = Modifier.padding(vertical = 14.dp),
         )
+        if (samsung != SamsungStatus.Ready && samsungDiagnostics != null) {
+            SelectionContainer {
+                Text(samsungDiagnostics, style = Type.figureSmall, color = ink.inkSoft, modifier = Modifier.padding(bottom = 14.dp))
+            }
+        }
         if (samsung != SamsungStatus.Ready) {
             LedgerButton(if (samsung is SamsungStatus.Paused) "Reintentar Samsung Health" else "Conectar Samsung Health", onConnectSamsung, filled = true)
         }

@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import android.os.Build
 import android.os.RemoteException
 import java.time.LocalDate
 import java.time.ZoneId
@@ -45,6 +46,7 @@ class SamsungClient(context: Context) {
     suspend fun status(): SamsungStatus {
         faultStatus()?.let { return it }
         val reply = call(SamsungIpc.STATUS, Bundle(), STATUS_TIMEOUT_MS)
+        if (reply == null) recordSilentDeath()
         return faultStatus()
             ?: SamsungIpc.decode(reply?.getString(SamsungIpc.KEY_STATUS))
             ?: SamsungStatus.Unavailable("Samsung Health no respondió.")
@@ -57,6 +59,7 @@ class SamsungClient(context: Context) {
             putString(SamsungIpc.KEY_ZONE, zone.id)
         }
         val reply = call(SamsungIpc.LOAD, args, LOAD_TIMEOUT_MS)
+        if (reply == null) recordSilentDeath()
         val file = reply?.getString(SamsungIpc.KEY_FILE)
         val loaded = file?.let { withContext(Dispatchers.IO) { SamsungIpc.readPayload(context, it) } }
         return loaded ?: SamsungActivity(
@@ -66,6 +69,22 @@ class SamsungClient(context: Context) {
             failed = listOf("pasos", "tiempo activo", "distancia", "calorías", "caminatas"),
             fault = faultText()?.lineSequence()?.firstOrNull() ?: reply?.getString(SamsungIpc.KEY_ERROR) ?: "sin respuesta",
         )
+    }
+
+    private fun recordSilentDeath() {
+        if (!paused()) SamsungIpc.recordFault(context, "el proceso de Samsung Health se cerró sin responder")
+    }
+
+    fun diagnostics(): String {
+        val loader = javaClass.classLoader
+        val owner = runCatching { Class.forName(RESPONSE_CLASS, false, loader).classLoader?.javaClass?.simpleName ?: "BootClassLoader" }
+            .getOrElse { "no está (${it.javaClass.simpleName})" }
+        val inSystem = runCatching { Class.forName(RESPONSE_CLASS, false, null) }.isSuccess
+        val companion = runCatching { Class.forName("$RESPONSE_CLASS\$Companion", false, loader) }.isSuccess
+        val shealth = runCatching { context.packageManager.getPackageInfo(SHEALTH_PACKAGE, 0).versionName }.getOrNull() ?: "?"
+        return "DataResponse cargada por: $owner\n" +
+            "también en el sistema: ${if (inSystem) "sí" else "no"} · Companion: ${if (companion) "sí" else "no"}\n" +
+            "Samsung Health $shealth · Android ${Build.VERSION.SDK_INT} · ${Build.MODEL}"
     }
 
     private fun faultText(): String? = runCatching { SamsungIpc.faultFile(context).readText() }.getOrNull()
@@ -127,5 +146,7 @@ class SamsungClient(context: Context) {
     private companion object {
         const val STATUS_TIMEOUT_MS = 20_000L
         const val LOAD_TIMEOUT_MS = 120_000L
+        const val RESPONSE_CLASS = "com.samsung.android.sdk.health.data.response.DataResponse"
+        const val SHEALTH_PACKAGE = "com.sec.android.app.shealth"
     }
 }

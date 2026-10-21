@@ -101,6 +101,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
                 historyGranted = state.historyGranted,
                 crash = state.crash,
                 samsung = state.samsung,
+                samsungDiagnostics = state.samsungDiagnostics,
                 onConnectSamsung = actions.connectSamsung,
                 onClearCrash = actions.clearCrash,
                 onSignIn = actions.signIn,

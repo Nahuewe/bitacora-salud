@@ -105,6 +105,10 @@ object SamsungIpc {
         atomicWrite(faultFile(context), text)
     }
 
+    fun recordFault(context: Context, text: String) {
+        atomicWrite(faultFile(context), text.take(MAX_FAULT_CHARS))
+    }
+
     fun encode(status: SamsungStatus): String = when (status) {
         SamsungStatus.Ready -> "READY"
         SamsungStatus.NeedsPermission -> "PERMISSION"

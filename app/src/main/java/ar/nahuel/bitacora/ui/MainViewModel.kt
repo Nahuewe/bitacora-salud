@@ -82,6 +82,7 @@ data class UiState(
     val backgroundGranted: Boolean = false,
     val historyGranted: Boolean = false,
     val crash: CrashReport? = null,
+    val samsungDiagnostics: String? = null,
     val samsung: SamsungStatus? = null,
     val routine: RoutineUi = RoutineUi(),
     val showMap: Boolean = false,
@@ -128,7 +129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         refreshAccount()
-        _state.update { it.copy(crash = graph.crashLog.last()) }
+        _state.update { it.copy(crash = graph.crashLog.last(), samsungDiagnostics = runCatching { graph.samsung.diagnostics() }.getOrNull()) }
         refreshRoutine()
         refresh(force = true)
     }
