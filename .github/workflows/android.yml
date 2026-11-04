@@ -180,17 +180,32 @@ jobs:
       - name: OSV-Scanner
         run: |
           docker run --rm -v "$PWD:/src" -w /src ghcr.io/google/osv-scanner:v2.7.0 \
-            scan source --lockfile gradle.lockfile:/src/app/gradle.lockfile --format json > osv.json || status=$?
+            scan source --lockfile gradle.lockfile:/src/app/gradle.lockfile --format json > osv.json || true
           python3 - <<'PY'
-          import json, os
-          data = json.load(open("osv.json")) if os.path.exists("osv.json") else {}
+          import json, os, sys
+          shipped = set()
+          for line in open("app/gradle.lockfile"):
+              if "=" in line and not line.startswith("#"):
+                  coords, confs = line.strip().split("=", 1)
+                  if "releaseRuntimeClasspath" in confs.split(","):
+                      shipped.add(coords)
+          data = json.load(open("osv.json")) if os.path.exists("osv.json") and os.path.getsize("osv.json") else {}
+          if not data:
+              print("::error::OSV-Scanner no produjo resultados")
+              sys.exit(1)
+          failing = 0
           for res in data.get("results", []):
               for pkg in res.get("packages", []):
                   p = pkg["package"]
                   ids = ", ".join(v["id"] for v in pkg.get("vulnerabilities", []))
-                  print(f"::error::{p['name']} {p['version']}: {ids}")
+                  if f"{p['name']}:{p['version']}" in shipped:
+                      failing += 1
+                      print(f"::error::En el APK: {p['name']} {p['version']}: {ids}")
+                  else:
+                      print(f"::warning::Solo en herramientas de build: {p['name']} {p['version']}: {ids}")
+          print(f"{len(shipped)} dependencias en el APK, {failing} con vulnerabilidades conocidas")
+          sys.exit(1 if failing else 0)
           PY
-          exit ${status:-0}
 
   release:
     name: Publicar versión
