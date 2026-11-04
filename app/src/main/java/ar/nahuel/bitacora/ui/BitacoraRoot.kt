@@ -90,7 +90,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
             .weight(1f)
             .fillMaxWidth()
         when (state.tab) {
-            Tab.SHEET -> SheetScreen(state.content, state.today, actions.retry, state.samsung, actions.connectSamsung, body)
+            Tab.SHEET -> SheetScreen(state.content, state.today, state.freshness, actions.retry, state.samsung, state.samsungNote, actions.connectSamsung, body)
             Tab.TRENDS -> TrendsScreen(state.content, body)
             Tab.ROUTINE -> RoutineScreen(state.routine, state.today, actions.toggleRoutine, body)
             Tab.LOG -> LogScreen(state.content, actions.openMap, body)
@@ -101,6 +101,7 @@ private fun MainLayout(state: UiState, actions: RootActions) {
                 historyGranted = state.historyGranted,
                 crash = state.crash,
                 samsung = state.samsung,
+                samsungNote = state.samsungNote,
                 samsungDiagnostics = state.samsungDiagnostics,
                 onConnectSamsung = actions.connectSamsung,
                 onClearCrash = actions.clearCrash,

@@ -48,6 +48,14 @@ android {
         }
     }
 
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+        xmlReport = true
+        htmlReport = true
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -78,6 +86,10 @@ kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
     }
+}
+
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 dependencies {

@@ -2,7 +2,13 @@ package ar.nahuel.bitacora
 
 import android.app.Application
 import android.content.Context
+import ar.nahuel.bitacora.account.AccountController
+import ar.nahuel.bitacora.data.ActivityRepository
+import ar.nahuel.bitacora.data.ActivityStore
 import ar.nahuel.bitacora.domain.RecommendationEngine
+import ar.nahuel.bitacora.domain.StrengthProgram
+import ar.nahuel.bitacora.domain.StrengthProgramParser
+import ar.nahuel.bitacora.routes.MapLoader
 import ar.nahuel.bitacora.health.HealthConnectSource
 import ar.nahuel.bitacora.remote.AuthRepository
 import ar.nahuel.bitacora.remote.SessionStore
@@ -33,7 +39,22 @@ class AppGraph(context: Context) {
     val routeStore = RouteStore(context, json)
     val routeImporter = RouteImporter(context, json)
     val samsung = SamsungClient(context)
-    val sync = SyncService(health, auth, api, syncState, json, routineLog, samsung)
+    val activity = ActivityRepository(health, samsung, ActivityStore(context))
+    val sync = SyncService(health, auth, api, syncState, json, routineLog, activity)
+    val account = AccountController(auth, sync, syncState)
+    val maps = MapLoader(health, routeStore, routeImporter)
+
+    private val assets = context.applicationContext.assets
+    private val programLock = Any()
+    private var program: StrengthProgram? = null
+
+    fun program(): StrengthProgram = synchronized(programLock) {
+        program ?: assets.open(PROGRAM_ASSET).use { StrengthProgramParser.parse(it.readBytes().decodeToString()) }.also { program = it }
+    }
+
+    private companion object {
+        const val PROGRAM_ASSET = "strength_program.json"
+    }
 }
 
 class BitacoraApplication : Application() {

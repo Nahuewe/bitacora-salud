@@ -1,25 +1,22 @@
 package ar.nahuel.bitacora.sync
 
 import ar.nahuel.bitacora.BuildConfig
+import ar.nahuel.bitacora.data.ActivityRepository
 import ar.nahuel.bitacora.health.HealthAccess
 import ar.nahuel.bitacora.health.HealthConnectAvailability
 import ar.nahuel.bitacora.health.HealthConnectSource
 import ar.nahuel.bitacora.remote.ApiError
 import ar.nahuel.bitacora.remote.AuthRepository
 import ar.nahuel.bitacora.remote.AuthSession
+import ar.nahuel.bitacora.remote.PostgrestFilter
 import ar.nahuel.bitacora.remote.SupabaseApi
 import ar.nahuel.bitacora.routine.RoutineEntry
 import ar.nahuel.bitacora.routine.RoutineLog
-import ar.nahuel.bitacora.samsung.SamsungClient
 import ar.nahuel.bitacora.samsung.SamsungStatus
-import ar.nahuel.bitacora.samsung.mergeSessions
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -44,7 +41,7 @@ class SyncService(
     private val state: SyncState,
     private val json: Json,
     private val routines: RoutineLog,
-    private val samsung: SamsungClient,
+    private val activity: ActivityRepository,
 ) {
     private val lock = Mutex()
 
@@ -79,52 +76,27 @@ class SyncService(
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val status = state.read()
-        val historyDays = if (HealthAccess.HISTORY in granted) INITIAL_HISTORY_DAYS else RECENT_DAYS
-        val windowStart = if (status.initialSyncDone && status.lastSuccess != null) {
-            status.lastSuccess.minus(Duration.ofDays(OVERLAP_DAYS))
-        } else {
-            today.minusDays(historyDays).atStartOfDay(zone).toInstant()
-        }
-        val windowStartDate = windowStart.atZone(zone).toLocalDate()
-        val recomputeFrom = today.minusDays(DAILY_RECOMPUTE_DAYS)
-        val dailyFrom = if (windowStartDate.isBefore(recomputeFrom)) windowStartDate else recomputeFrom
-        val windowEnd = today.plusDays(1).atStartOfDay(zone).toInstant()
+        val window = SyncPlan.window(status.lastSuccess, status.initialSyncDone, HealthAccess.HISTORY in granted, today, zone)
 
         return try {
-            val hcDays = health.dailyActivity(dailyFrom, today)
-            val heart = health.heartRateSamples(windowStart, windowEnd)
-            val hcSessions = health.exerciseSessions(windowStart, windowEnd, heart)
-            val samsungData = if (!samsung.paused() && samsung.status() == SamsungStatus.Ready) {
-                try {
-                    samsung.load(dailyFrom, today, zone).takeIf { it.failed.isEmpty() }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    null
-                } catch (e: LinkageError) {
-                    null
-                }
-            } else {
-                null
-            }
-            val days = if (samsungData != null) {
-                val bySamsung = samsungData.days.associateBy { it.date }
-                (hcDays.filter { it.date !in bySamsung } + samsungData.days).map { it.toRow() }
-            } else {
-                hcDays.map { it.toRow() }
-            }
-            val sessions = (if (samsungData != null) {
-                mergeSessions(samsungData.sessions.filter { !it.start.isBefore(windowStart) }, hcSessions)
-            } else {
-                hcSessions
-            }).map { it.toRow() }
-            val sleeps = health.sleepSessions(windowStart, windowEnd, heart).map { it.toRow() }
-            val weights = health.weights(windowStart, windowEnd).mapNotNull { it.toRow() }
+            val combined = activity.read(window.dailyFrom, today, zone)
+            val snapshot = combined.snapshot
+            val days = snapshot.days.filter { !it.date.isBefore(window.dailyFrom) }.map { it.toRow() }
+            val sessions = snapshot.sessions.filter { !it.start.isBefore(window.start) }.map { it.toRow() }
+            val sleeps = snapshot.sleeps.filter { !it.start.isBefore(window.start) }.map { it.toRow() }
+            val weights = snapshot.weights.filter { !it.time.isBefore(window.start) }.mapNotNull { it.toRow() }
 
             push("daily_activity", "user_id,day", days, DailyRow.serializer(), session)
             push("exercise_sessions", "user_id,hc_id", sessions, ExerciseRow.serializer(), session)
             push("sleep_sessions", "user_id,hc_id", sleeps, SleepRow.serializer(), session)
             push("weight_entries", "user_id,hc_id", weights, WeightRow.serializer(), session)
+
+            val sessionsComplete = combined.status != SamsungStatus.Ready || combined.samsungComplete
+            val removed = buildMap {
+                if (sessionsComplete) put("exercise_sessions", reconcile("exercise_sessions", "started_at", window, sessions.map { it.hcId }, session))
+                put("sleep_sessions", reconcile("sleep_sessions", "started_at", window, sleeps.map { it.hcId }, session))
+                put("weight_entries", reconcile("weight_entries", "measured_at", window, weights.map { it.hcId }, session))
+            }
             val strength = syncStrength(session)
 
             val counts = mapOf(
@@ -133,6 +105,7 @@ class SyncService(
                 "sleep_sessions" to sleeps.size,
                 "weight_entries" to weights.size,
                 "strength_logs" to strength,
+                "removed" to removed.values.sum(),
             )
             val finishedAt = Instant.now()
             record(trigger, startedAt, finishedAt, "success", counts, null, session)
@@ -151,6 +124,30 @@ class SyncService(
         } catch (e: android.os.RemoteException) {
             fail("health_remote", true)
         }
+    }
+
+    private suspend fun reconcile(table: String, timeColumn: String, window: SyncWindow, localIds: List<String>, session: AuthSession): Int {
+        val raw = api.selectWhere(
+            table,
+            "hc_id",
+            listOf(
+                timeColumn to "gte.${window.start}",
+                timeColumn to "lt.${window.end}",
+                "deleted_at" to "is.null",
+            ),
+            session,
+        )
+        val remote = try {
+            json.decodeFromString(ListSerializer(LiveIdRow.serializer()), raw).map { it.hcId }
+        } catch (e: SerializationException) {
+            return 0
+        }
+        val stale = SyncPlan.staleIds(remote, localIds) ?: return 0
+        val patch = json.encodeToString(DeletedAtPatch.serializer(), DeletedAtPatch(Instant.now().toString()))
+        stale.chunked(DELETE_CHUNK).forEach { chunk ->
+            api.updateWhere(table, listOf("hc_id" to PostgrestFilter.inList(chunk), "deleted_at" to "is.null"), patch, session)
+        }
+        return stale.size
     }
 
     private suspend fun syncStrength(session: AuthSession): Int = try {
@@ -212,10 +209,7 @@ class SyncService(
 
     companion object {
         const val STRENGTH_TABLE_MISSING = -1
-        private const val INITIAL_HISTORY_DAYS = 365L
-        private const val RECENT_DAYS = 29L
-        private const val OVERLAP_DAYS = 3L
-        private const val DAILY_RECOMPUTE_DAYS = 10L
         private const val CHUNK_SIZE = 500
+        private const val DELETE_CHUNK = 100
     }
 }

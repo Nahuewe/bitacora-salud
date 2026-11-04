@@ -24,30 +24,27 @@ import kotlinx.coroutines.withTimeoutOrNull
 class SamsungClient(context: Context) {
 
     private val context = context.applicationContext
+    private val pauses = SamsungPauseStore(this.context.filesDir, SamsungCrashReport(this.context.filesDir))
 
     init {
         SamsungIpc.clearStalePayloads(this.context)
     }
 
-    fun paused(): Boolean = SamsungIpc.faultFile(context).exists()
-
-    fun clearFault() {
-        SamsungIpc.faultFile(context).delete()
-    }
+    fun paused(): Boolean = pauses.current() != null
 
     fun connectIntent(): Intent {
-        clearFault()
+        pauses.resume()
         return Intent(context, SamsungConnectActivity::class.java)
     }
 
     suspend fun afterConnect(result: Intent?): SamsungStatus =
-        faultStatus() ?: SamsungIpc.decode(result?.getStringExtra(SamsungIpc.KEY_STATUS)) ?: status()
+        pausedStatus() ?: SamsungIpc.decode(result?.getStringExtra(SamsungIpc.KEY_STATUS)) ?: status()
 
     suspend fun status(): SamsungStatus {
-        faultStatus()?.let { return it }
+        pausedStatus()?.let { return it }
         val reply = call(SamsungIpc.STATUS, Bundle(), STATUS_TIMEOUT_MS)
-        if (reply == null) recordSilentDeath()
-        return faultStatus()
+        if (reply == null) pauses.pause(SILENT_DEATH)
+        return pausedStatus()
             ?: SamsungIpc.decode(reply?.getString(SamsungIpc.KEY_STATUS))
             ?: SamsungStatus.Unavailable("Samsung Health no respondió.")
     }
@@ -59,44 +56,24 @@ class SamsungClient(context: Context) {
             putString(SamsungIpc.KEY_ZONE, zone.id)
         }
         val reply = call(SamsungIpc.LOAD, args, LOAD_TIMEOUT_MS)
-        if (reply == null) recordSilentDeath()
+        if (reply == null) pauses.pause(SILENT_DEATH)
         val file = reply?.getString(SamsungIpc.KEY_FILE)
         val loaded = file?.let { withContext(Dispatchers.IO) { SamsungIpc.readPayload(context, it) } }
-        return loaded ?: SamsungActivity(
-            days = emptyList(),
-            sessions = emptyList(),
-            routes = emptyList(),
-            failed = listOf("pasos", "tiempo activo", "distancia", "calorías", "caminatas"),
-            fault = faultText()?.lineSequence()?.firstOrNull() ?: reply?.getString(SamsungIpc.KEY_ERROR) ?: "sin respuesta",
+        return loaded ?: SamsungActivity.failure(
+            pauses.current()?.reason ?: reply?.getString(SamsungIpc.KEY_ERROR)?.take(120) ?: "sin respuesta",
         )
-    }
-
-    private fun recordSilentDeath() {
-        if (!paused()) SamsungIpc.recordFault(context, "el proceso de Samsung Health se cerró sin responder")
     }
 
     fun diagnostics(): String {
         val loader = javaClass.classLoader
-        val owner = runCatching { Class.forName(RESPONSE_CLASS, false, loader).classLoader?.javaClass?.simpleName ?: "BootClassLoader" }
-            .getOrElse { "no está (${it.javaClass.simpleName})" }
-        val inSystem = runCatching { Class.forName(RESPONSE_CLASS, false, null) }.isSuccess
         val companion = runCatching { Class.forName("$RESPONSE_CLASS\$Companion", false, loader) }.isSuccess
         val shealth = runCatching { context.packageManager.getPackageInfo(SHEALTH_PACKAGE, 0).versionName }.getOrNull() ?: "?"
-        return "DataResponse cargada por: $owner\n" +
-            "también en el sistema: ${if (inSystem) "sí" else "no"} · Companion: ${if (companion) "sí" else "no"}\n" +
-            "Samsung Health $shealth · Android ${Build.VERSION.SDK_INT} · ${Build.MODEL}"
+        return "SDK completo: ${if (companion) "sí" else "no"} · Samsung Health $shealth · Android ${Build.VERSION.SDK_INT} · ${Build.MODEL}"
     }
 
-    private fun faultText(): String? = runCatching { SamsungIpc.faultFile(context).readText() }.getOrNull()
-
-    private fun faultStatus(): SamsungStatus? = faultText()?.let { text ->
-        SamsungStatus.Paused(
-            "La lectura de Samsung Health falló y la pausé; la app sigue con Health Connect. " +
-                "Detalle: ${text.lineSequence().firstOrNull().orEmpty()}",
-        )
+    private fun pausedStatus(): SamsungStatus? = pauses.current()?.let { pause ->
+        SamsungStatus.Paused("La lectura de Samsung Health falló y la pausé; la app sigue con Health Connect. Detalle: ${pause.reason}")
     }
-
-    fun faultDetail(): String? = faultText()
 
     private suspend fun call(what: Int, args: Bundle, timeoutMs: Long): Bundle? = withTimeoutOrNull(timeoutMs) {
         suspendCancellableCoroutine { cont ->
@@ -146,6 +123,7 @@ class SamsungClient(context: Context) {
     private companion object {
         const val STATUS_TIMEOUT_MS = 20_000L
         const val LOAD_TIMEOUT_MS = 120_000L
+        const val SILENT_DEATH = "el proceso de Samsung Health se cerró sin responder"
         const val RESPONSE_CLASS = "com.samsung.android.sdk.health.data.response.DataResponse"
         const val SHEALTH_PACKAGE = "com.sec.android.app.shealth"
     }

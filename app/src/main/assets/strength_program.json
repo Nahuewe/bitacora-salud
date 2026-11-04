@@ -1,0 +1,2472 @@
+{
+ "version": 1,
+ "warmUp": [
+  "2 minutos caminando en el lugar o subiendo y bajando un escalón.",
+  "10 sentadillas a banco sin peso, lentas.",
+  "10 círculos de hombros hacia atrás y 10 hacia adelante.",
+  "8 bisagras de cadera con un palo apoyado en la espalda: cabeza, espalda alta y cola tocan el palo todo el tiempo."
+ ],
+ "effortRule": "Terminá cada serie con 2 o 3 repeticiones en reserva. La molestia muscular al día siguiente es normal; un dolor articular punzante, o que empeora durante el ejercicio, no: pará y pasá a la versión más fácil.",
+ "phases": [
+  {
+   "name": "Técnica",
+   "weeks": "Semanas 1–2",
+   "rule": "Peso liviano. Terminá cada serie sintiendo que podrías hacer 4 repeticiones más. El objetivo es aprender el movimiento.",
+   "untilWeek": 2
+  },
+  {
+   "name": "Progresión",
+   "weeks": "Semanas 3–6",
+   "rule": "Cuando completes todas las series en el tope del rango con buena técnica (por ejemplo 3 × 10), subí 1 a 2 kg en la sesión siguiente.",
+   "untilWeek": 6
+  },
+  {
+   "name": "Volumen",
+   "weeks": "Semana 7 en adelante",
+   "rule": "Sumá el sábado como tercer día de fuerza y pasá a 4 series en la sentadilla y el peso muerto rumano.",
+   "untilWeek": null
+  }
+ ],
+ "routines": [
+  {
+   "id": "A",
+   "name": "Fuerza A",
+   "minutes": 35,
+   "exercises": [
+    "box-squat",
+    "row",
+    "incline-push-up",
+    "glute-bridge",
+    "plank"
+   ],
+   "format": "Series seguidas de cada ejercicio, con su descanso.",
+   "purpose": "Piernas, espalda, pecho y abdomen.",
+   "strength": true
+  },
+  {
+   "id": "B",
+   "name": "Fuerza B",
+   "minutes": 35,
+   "exercises": [
+    "rdl",
+    "shoulder-press",
+    "split-squat",
+    "band-row",
+    "dead-bug"
+   ],
+   "format": "Series seguidas de cada ejercicio, con su descanso.",
+   "purpose": "Cadena posterior, hombros y estabilidad.",
+   "strength": true
+  },
+  {
+   "id": "C",
+   "name": "Core y postura",
+   "minutes": 15,
+   "exercises": [
+    "bird-dog",
+    "side-plank",
+    "prone-y",
+    "calf-raise"
+   ],
+   "format": "Dos vueltas al circuito, 30 s de pausa entre ejercicios.",
+   "purpose": "Abdomen, espalda alta y pantorrillas: sostienen la postura y protegen tibias y talones en las caminatas largas.",
+   "strength": false
+  },
+  {
+   "id": "M",
+   "name": "Movilidad después de caminar",
+   "minutes": 8,
+   "exercises": [
+    "calf-stretch",
+    "hip-flexor",
+    "hamstring-stretch",
+    "quad-stretch",
+    "chest-opener"
+   ],
+   "format": "Una vuelta, 30 s por lado, respirando lento.",
+   "purpose": "Después de cada caminata, con los músculos calientes. No es para ganar flexibilidad rápido sino para bajar la tensión del día.",
+   "strength": false
+  }
+ ],
+ "week": [
+  {
+   "day": "MONDAY",
+   "kind": "STRENGTH",
+   "title": "Fuerza A",
+   "detail": "35 min. Si caminás, que sea suave, y movilidad al volver.",
+   "routines": [
+    "A",
+    "M"
+   ]
+  },
+  {
+   "day": "TUESDAY",
+   "kind": "EASY_WALK",
+   "title": "Caminata suave + core",
+   "detail": "40 a 60 min a ritmo de conversación y 15 min de core.",
+   "routines": [
+    "C",
+    "M"
+   ]
+  },
+  {
+   "day": "WEDNESDAY",
+   "kind": "INTERVALS",
+   "title": "Caminata con intervalos",
+   "detail": "5 o 6 bloques de 3 min rápido o en subida y 2 min suave.",
+   "routines": [
+    "M"
+   ]
+  },
+  {
+   "day": "THURSDAY",
+   "kind": "STRENGTH",
+   "title": "Fuerza B",
+   "detail": "35 min, y movilidad al terminar.",
+   "routines": [
+    "B",
+    "M"
+   ]
+  },
+  {
+   "day": "FRIDAY",
+   "kind": "EASY_WALK",
+   "title": "Caminata suave + core",
+   "detail": "40 a 60 min a ritmo de conversación y 15 min de core.",
+   "routines": [
+    "C",
+    "M"
+   ]
+  },
+  {
+   "day": "SATURDAY",
+   "kind": "LONG_WALK",
+   "title": "Caminata larga",
+   "detail": "60 a 90 min a ritmo cómodo.",
+   "routines": [
+    "M"
+   ]
+  },
+  {
+   "day": "SUNDAY",
+   "kind": "REST",
+   "title": "Descanso activo",
+   "detail": "20 a 30 min de caminata tranquila y la movilidad.",
+   "routines": [
+    "M"
+   ]
+  }
+ ],
+ "weekChanges": [
+  {
+   "fromWeek": 7,
+   "replace": {
+    "day": "SATURDAY",
+    "kind": "STRENGTH",
+    "title": "Fuerza A + caminata",
+    "detail": "Tercer día de fuerza y caminata cómoda.",
+    "routines": [
+     "A",
+     "M"
+    ]
+   }
+  }
+ ],
+ "exercises": [
+  {
+   "id": "box-squat",
+   "name": "Sentadilla a banco",
+   "prescription": "3 × 8–10",
+   "rest": "90 s",
+   "equipment": "Banco o silla firme. Más adelante, una mancuerna sostenida al pecho.",
+   "cues": [
+    "Pies al ancho de hombros, puntas apenas hacia afuera.",
+    "Llevá la cadera hacia atrás como buscando la silla; las rodillas siguen la dirección de las puntas.",
+    "Tocá el banco sin desplomarte y subí empujando el piso con todo el pie.",
+    "Pecho alto y mirada al frente durante todo el movimiento."
+   ],
+   "avoid": [
+    "Rodillas que se juntan hacia adentro al subir.",
+    "Talones que se despegan del piso.",
+    "Caer de golpe sobre el banco."
+   ],
+   "easier": "Banco más alto o almohadón encima.",
+   "harder": "Mancuerna al pecho (sentadilla goblet) o banco más bajo.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.6,
+       0.3
+      ],
+      "hand": [
+       0.72,
+       0.3
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.51,
+       0.72
+      ],
+      "ankle": [
+       0.5,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.2,
+       "top": 0.69,
+       "right": 0.4,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    },
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.56,
+       0.31
+      ],
+      "shoulder": [
+       0.51,
+       0.42
+      ],
+      "elbow": [
+       0.63,
+       0.46
+      ],
+      "hand": [
+       0.75,
+       0.46
+      ],
+      "hip": [
+       0.39,
+       0.67
+      ],
+      "knee": [
+       0.58,
+       0.73
+      ],
+      "ankle": [
+       0.52,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.2,
+       "top": 0.69,
+       "right": 0.4,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.58,
+        0.73
+       ],
+       "to": [
+        0.58,
+        0.92
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "row",
+   "name": "Remo con mancuerna apoyado",
+   "prescription": "3 × 10 por lado",
+   "rest": "60–90 s",
+   "equipment": "Una mancuerna y un banco, silla o mesa para apoyar la otra mano.",
+   "cues": [
+    "Una mano en el banco y los pies separados; espalda plana, casi paralela al piso.",
+    "Llevá el codo hacia la cadera, rozando el costado del cuerpo.",
+    "Arriba, juntá el omóplato hacia la columna un segundo.",
+    "Bajá lento hasta estirar el brazo por completo."
+   ],
+   "avoid": [
+    "Girar el torso para subir el peso.",
+    "Encoger el hombro hacia la oreja.",
+    "Redondear la espalda baja."
+   ],
+   "easier": "Banda elástica en lugar de mancuerna.",
+   "harder": "Más peso o una pausa de un segundo arriba.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.73,
+       0.57
+      ],
+      "shoulder": [
+       0.63,
+       0.6
+      ],
+      "elbow": [
+       0.62,
+       0.7
+      ],
+      "hand": [
+       0.62,
+       0.8
+      ],
+      "hip": [
+       0.36,
+       0.54
+      ],
+      "knee": [
+       0.4,
+       0.73
+      ],
+      "ankle": [
+       0.38,
+       0.92
+      ],
+      "elbow2": [
+       0.66,
+       0.68
+      ],
+      "hand2": [
+       0.68,
+       0.76
+      ]
+     },
+     "props": [
+      {
+       "left": 0.6,
+       "top": 0.77,
+       "right": 0.9,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.3,
+        0.53
+       ],
+       "to": [
+        0.7,
+        0.62
+       ]
+      }
+     ],
+     "dumbbell": true
+    },
+    {
+     "label": "Final",
+     "pose": {
+      "head": [
+       0.73,
+       0.57
+      ],
+      "shoulder": [
+       0.63,
+       0.6
+      ],
+      "elbow": [
+       0.5,
+       0.52
+      ],
+      "hand": [
+       0.55,
+       0.62
+      ],
+      "hip": [
+       0.36,
+       0.54
+      ],
+      "knee": [
+       0.4,
+       0.73
+      ],
+      "ankle": [
+       0.38,
+       0.92
+      ],
+      "elbow2": [
+       0.66,
+       0.68
+      ],
+      "hand2": [
+       0.68,
+       0.76
+      ]
+     },
+     "props": [
+      {
+       "left": 0.6,
+       "top": 0.77,
+       "right": 0.9,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.3,
+        0.53
+       ],
+       "to": [
+        0.7,
+        0.62
+       ]
+      }
+     ],
+     "dumbbell": true
+    }
+   ]
+  },
+  {
+   "id": "incline-push-up",
+   "name": "Flexiones inclinadas",
+   "prescription": "3 × 8–12",
+   "rest": "90 s",
+   "equipment": "Mesa firme, mesada o la pared.",
+   "cues": [
+    "Manos un poco más anchas que los hombros, a la altura del pecho.",
+    "Cuerpo en línea recta de la cabeza a los talones: apretá glúteos y abdomen.",
+    "Codos a unos 45° del cuerpo, no abiertos en cruz.",
+    "Bajá hasta que el pecho casi toque el borde y empujá lejos."
+   ],
+   "avoid": [
+    "Cadera hundida o levantada.",
+    "Cabeza adelantada buscando el borde."
+   ],
+   "easier": "Contra la pared.",
+   "harder": "Superficie más baja, o press con mancuernas en un banco.",
+   "frames": [
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.73,
+       0.38
+      ],
+      "shoulder": [
+       0.66,
+       0.43
+      ],
+      "elbow": [
+       0.69,
+       0.52
+      ],
+      "hand": [
+       0.72,
+       0.62
+      ],
+      "hip": [
+       0.42,
+       0.65
+      ],
+      "knee": [
+       0.27,
+       0.78
+      ],
+      "ankle": [
+       0.12,
+       0.92
+      ],
+      "feet": false
+     },
+     "props": [
+      {
+       "left": 0.66,
+       "top": 0.62,
+       "right": 0.95,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.73,
+        0.38
+       ],
+       "to": [
+        0.12,
+        0.92
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.75,
+       0.5
+      ],
+      "shoulder": [
+       0.68,
+       0.54
+      ],
+      "elbow": [
+       0.57,
+       0.6
+      ],
+      "hand": [
+       0.72,
+       0.62
+      ],
+      "hip": [
+       0.43,
+       0.71
+      ],
+      "knee": [
+       0.28,
+       0.81
+      ],
+      "ankle": [
+       0.12,
+       0.92
+      ],
+      "feet": false
+     },
+     "props": [
+      {
+       "left": 0.66,
+       "top": 0.62,
+       "right": 0.95,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.75,
+        0.5
+       ],
+       "to": [
+        0.12,
+        0.92
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "glute-bridge",
+   "name": "Puente de glúteo",
+   "prescription": "3 × 12",
+   "rest": "60 s",
+   "equipment": "Una colchoneta o una toalla.",
+   "cues": [
+    "Boca arriba, rodillas dobladas, pies apoyados al ancho de la cadera.",
+    "Empujá con los talones y subí la cadera hasta alinear hombros, cadera y rodillas.",
+    "Apretá los glúteos dos segundos arriba.",
+    "Bajá controlado, sin dejarte caer."
+   ],
+   "avoid": [
+    "Arquear la zona lumbar para subir más.",
+    "Empujar con las puntas de los pies."
+   ],
+   "easier": "Subir menos, solo hasta donde sientas el glúteo.",
+   "harder": "Una pierna a la vez, o una mancuerna sobre la cadera.",
+   "frames": [
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.14,
+       0.86
+      ],
+      "shoulder": [
+       0.24,
+       0.88
+      ],
+      "elbow": [
+       0.34,
+       0.9
+      ],
+      "hand": [
+       0.44,
+       0.9
+      ],
+      "hip": [
+       0.5,
+       0.88
+      ],
+      "knee": [
+       0.64,
+       0.7
+      ],
+      "ankle": [
+       0.72,
+       0.9
+      ]
+     }
+    },
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.14,
+       0.86
+      ],
+      "shoulder": [
+       0.24,
+       0.88
+      ],
+      "elbow": [
+       0.34,
+       0.9
+      ],
+      "hand": [
+       0.44,
+       0.9
+      ],
+      "hip": [
+       0.5,
+       0.7
+      ],
+      "knee": [
+       0.66,
+       0.64
+      ],
+      "ankle": [
+       0.72,
+       0.9
+      ]
+     },
+     "guides": [
+      {
+       "from": [
+        0.24,
+        0.88
+       ],
+       "to": [
+        0.66,
+        0.64
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "plank",
+   "name": "Plancha",
+   "prescription": "3 × 20–30 s",
+   "rest": "60 s",
+   "equipment": "Una colchoneta.",
+   "cues": [
+    "Antebrazos en el piso, codos justo debajo de los hombros.",
+    "Línea recta de la cabeza a los talones.",
+    "Apretá glúteos y abdomen como si fueras a recibir un golpe.",
+    "Respirá normal durante todo el tiempo."
+   ],
+   "avoid": [
+    "Cadera hundida: carga la zona lumbar.",
+    "Cadera muy alta: le quita trabajo al abdomen.",
+    "Aguantar la respiración."
+   ],
+   "easier": "Con las rodillas apoyadas.",
+   "harder": "Sumar 10 segundos por semana hasta llegar a 45.",
+   "frames": [
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.16,
+       0.69
+      ],
+      "shoulder": [
+       0.26,
+       0.72
+      ],
+      "elbow": [
+       0.26,
+       0.9
+      ],
+      "hand": [
+       0.12,
+       0.9
+      ],
+      "hip": [
+       0.55,
+       0.8
+      ],
+      "knee": [
+       0.7,
+       0.84
+      ],
+      "ankle": [
+       0.86,
+       0.88
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.16,
+        0.69
+       ],
+       "to": [
+        0.86,
+        0.88
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Evitá",
+     "pose": {
+      "head": [
+       0.16,
+       0.69
+      ],
+      "shoulder": [
+       0.26,
+       0.72
+      ],
+      "elbow": [
+       0.26,
+       0.9
+      ],
+      "hand": [
+       0.12,
+       0.9
+      ],
+      "hip": [
+       0.55,
+       0.88
+      ],
+      "knee": [
+       0.7,
+       0.88
+      ],
+      "ankle": [
+       0.86,
+       0.88
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.16,
+        0.69
+       ],
+       "to": [
+        0.86,
+        0.88
+       ]
+      }
+     ],
+     "wrong": true
+    }
+   ]
+  },
+  {
+   "id": "rdl",
+   "name": "Peso muerto rumano",
+   "prescription": "3 × 8–10",
+   "rest": "90 s",
+   "equipment": "Dos mancuernas, o un palo para aprender el movimiento.",
+   "cues": [
+    "De pie, una mancuerna en cada mano frente a los muslos.",
+    "Rodillas apenas flexionadas y fijas durante todo el movimiento.",
+    "Llevá la cadera hacia atrás como si cerraras una puerta con la cola.",
+    "Las mancuernas bajan pegadas a las piernas hasta media tibia o hasta donde la espalda siga recta.",
+    "Subí apretando los glúteos."
+   ],
+   "avoid": [
+    "Redondear la espalda.",
+    "Doblar las rodillas como en una sentadilla.",
+    "Levantar la cabeza para mirar adelante."
+   ],
+   "easier": "Practicar la bisagra con un palo en la espalda.",
+   "harder": "Más peso o bajada de tres segundos.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.5,
+       0.38
+      ],
+      "hand": [
+       0.52,
+       0.52
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.51,
+       0.72
+      ],
+      "ankle": [
+       0.5,
+       0.92
+      ]
+     },
+     "dumbbell": true
+    },
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.63,
+       0.62
+      ],
+      "shoulder": [
+       0.54,
+       0.64
+      ],
+      "elbow": [
+       0.53,
+       0.73
+      ],
+      "hand": [
+       0.51,
+       0.82
+      ],
+      "hip": [
+       0.32,
+       0.5
+      ],
+      "knee": [
+       0.42,
+       0.71
+      ],
+      "ankle": [
+       0.46,
+       0.92
+      ]
+     },
+     "guides": [
+      {
+       "from": [
+        0.26,
+        0.46
+       ],
+       "to": [
+        0.62,
+        0.69
+       ]
+      }
+     ],
+     "dumbbell": true
+    }
+   ]
+  },
+  {
+   "id": "shoulder-press",
+   "name": "Press de hombros sentado",
+   "prescription": "3 × 8–10",
+   "rest": "90 s",
+   "equipment": "Dos mancuernas y una silla con respaldo.",
+   "cues": [
+    "Sentado con la espalda apoyada y los pies firmes en el piso.",
+    "Mancuernas a la altura de los hombros, palmas al frente o enfrentadas.",
+    "Empujá hacia arriba sin trabar los codos de golpe.",
+    "Costillas abajo y abdomen firme para no arquear la espalda."
+   ],
+   "avoid": [
+    "Arquear la espalda para empujar.",
+    "Codos muy por detrás del cuerpo."
+   ],
+   "easier": "Un brazo a la vez, o menos peso.",
+   "harder": "De pie, con glúteos y abdomen apretados.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.43,
+       0.24
+      ],
+      "shoulder": [
+       0.42,
+       0.36
+      ],
+      "elbow": [
+       0.52,
+       0.44
+      ],
+      "hand": [
+       0.52,
+       0.33
+      ],
+      "hip": [
+       0.42,
+       0.64
+      ],
+      "knee": [
+       0.62,
+       0.64
+      ],
+      "ankle": [
+       0.64,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.3,
+       "top": 0.66,
+       "right": 0.62,
+       "bottom": 0.92,
+       "type": "block"
+      },
+      {
+       "left": 0.3,
+       "top": 0.3,
+       "right": 0.35,
+       "bottom": 0.66,
+       "type": "block"
+      }
+     ],
+     "dumbbell": true
+    },
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.43,
+       0.24
+      ],
+      "shoulder": [
+       0.42,
+       0.36
+      ],
+      "elbow": [
+       0.47,
+       0.22
+      ],
+      "hand": [
+       0.46,
+       0.1
+      ],
+      "hip": [
+       0.42,
+       0.64
+      ],
+      "knee": [
+       0.62,
+       0.64
+      ],
+      "ankle": [
+       0.64,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.3,
+       "top": 0.66,
+       "right": 0.62,
+       "bottom": 0.92,
+       "type": "block"
+      },
+      {
+       "left": 0.3,
+       "top": 0.3,
+       "right": 0.35,
+       "bottom": 0.66,
+       "type": "block"
+      }
+     ],
+     "dumbbell": true
+    }
+   ]
+  },
+  {
+   "id": "split-squat",
+   "name": "Sentadilla dividida con apoyo",
+   "prescription": "3 × 8 por pierna",
+   "rest": "90 s",
+   "equipment": "Una pared o silla para apoyar una mano.",
+   "cues": [
+    "Un pie adelante y otro atrás, separados por un paso largo.",
+    "Bajá en vertical: la rodilla de atrás va hacia el piso.",
+    "El peso va en el talón de adelante, con la rodilla sobre el tobillo.",
+    "Torso erguido durante todo el movimiento."
+   ],
+   "avoid": [
+    "Rodilla de adelante que cae hacia adentro.",
+    "Pasos cortos: cargan la rodilla."
+   ],
+   "easier": "Bajar menos.",
+   "harder": "Una mancuerna en cada mano.",
+   "frames": [
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.5,
+       0.38
+      ],
+      "hand": [
+       0.51,
+       0.5
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.6,
+       0.7
+      ],
+      "ankle": [
+       0.66,
+       0.92
+      ],
+      "knee2": [
+       0.42,
+       0.72
+      ],
+      "ankle2": [
+       0.32,
+       0.9
+      ]
+     }
+    },
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.5,
+       0.24
+      ],
+      "shoulder": [
+       0.5,
+       0.36
+      ],
+      "elbow": [
+       0.5,
+       0.5
+      ],
+      "hand": [
+       0.51,
+       0.62
+      ],
+      "hip": [
+       0.5,
+       0.64
+      ],
+      "knee": [
+       0.66,
+       0.7
+      ],
+      "ankle": [
+       0.66,
+       0.92
+      ],
+      "knee2": [
+       0.44,
+       0.88
+      ],
+      "ankle2": [
+       0.3,
+       0.9
+      ]
+     },
+     "guides": [
+      {
+       "from": [
+        0.66,
+        0.7
+       ],
+       "to": [
+        0.66,
+        0.92
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "band-row",
+   "name": "Remo con banda elástica",
+   "prescription": "3 × 12",
+   "rest": "60 s",
+   "equipment": "Una banda elástica anclada a la altura del pecho (puerta cerrada o poste).",
+   "cues": [
+    "De pie, rodillas sueltas, banda tensa con los brazos estirados.",
+    "Tirá llevando los codos hacia atrás y juntando los omóplatos.",
+    "Hombros lejos de las orejas.",
+    "Volvé lento, sin que la banda te arrastre."
+   ],
+   "avoid": [
+    "Tirar echando la espalda hacia atrás.",
+    "Encoger los hombros."
+   ],
+   "easier": "Un paso más cerca del anclaje.",
+   "harder": "Banda más dura o un paso más lejos.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.4,
+       0.12
+      ],
+      "shoulder": [
+       0.4,
+       0.24
+      ],
+      "elbow": [
+       0.52,
+       0.34
+      ],
+      "hand": [
+       0.64,
+       0.36
+      ],
+      "hip": [
+       0.4,
+       0.52
+      ],
+      "knee": [
+       0.42,
+       0.72
+      ],
+      "ankle": [
+       0.4,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "from": [
+        0.64,
+        0.36
+       ],
+       "to": [
+        0.95,
+        0.36
+       ],
+       "type": "band"
+      },
+      {
+       "left": 0.95,
+       "top": 0.2,
+       "right": 0.98,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    },
+    {
+     "label": "Final",
+     "pose": {
+      "head": [
+       0.4,
+       0.12
+      ],
+      "shoulder": [
+       0.4,
+       0.24
+      ],
+      "elbow": [
+       0.3,
+       0.38
+      ],
+      "hand": [
+       0.42,
+       0.38
+      ],
+      "hip": [
+       0.4,
+       0.52
+      ],
+      "knee": [
+       0.42,
+       0.72
+      ],
+      "ankle": [
+       0.4,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "from": [
+        0.42,
+        0.38
+       ],
+       "to": [
+        0.95,
+        0.36
+       ],
+       "type": "band"
+      },
+      {
+       "left": 0.95,
+       "top": 0.2,
+       "right": 0.98,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dead-bug",
+   "name": "Dead bug",
+   "prescription": "3 × 8 por lado",
+   "rest": "60 s",
+   "equipment": "Una colchoneta.",
+   "cues": [
+    "Boca arriba, brazos hacia el techo y rodillas a 90° sobre la cadera.",
+    "Pegá la zona lumbar al piso y mantenela así.",
+    "Estirá un brazo hacia atrás y la pierna contraria hacia adelante, despacio.",
+    "Volvé al centro y cambiá de lado."
+   ],
+   "avoid": [
+    "Que se despegue la zona lumbar.",
+    "Apurarse: el ejercicio está en el control."
+   ],
+   "easier": "Mover solo las piernas.",
+   "harder": "Bajada de tres segundos en cada lado.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.12,
+       0.86
+      ],
+      "shoulder": [
+       0.22,
+       0.86
+      ],
+      "elbow": [
+       0.22,
+       0.72
+      ],
+      "hand": [
+       0.22,
+       0.6
+      ],
+      "hip": [
+       0.48,
+       0.86
+      ],
+      "knee": [
+       0.48,
+       0.66
+      ],
+      "ankle": [
+       0.64,
+       0.66
+      ],
+      "feet": false
+     }
+    },
+    {
+     "label": "Extensión",
+     "pose": {
+      "head": [
+       0.12,
+       0.86
+      ],
+      "shoulder": [
+       0.22,
+       0.86
+      ],
+      "elbow": [
+       0.12,
+       0.8
+      ],
+      "hand": [
+       0.03,
+       0.82
+      ],
+      "hip": [
+       0.48,
+       0.86
+      ],
+      "knee": [
+       0.66,
+       0.8
+      ],
+      "ankle": [
+       0.84,
+       0.84
+      ],
+      "elbow2": [
+       0.22,
+       0.72
+      ],
+      "hand2": [
+       0.22,
+       0.6
+      ],
+      "knee2": [
+       0.48,
+       0.66
+      ],
+      "ankle2": [
+       0.64,
+       0.66
+      ],
+      "feet": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "bird-dog",
+   "name": "Bird dog",
+   "prescription": "2 × 8 por lado",
+   "rest": "30 s",
+   "equipment": "Una colchoneta.",
+   "cues": [
+    "En cuatro apoyos: manos bajo los hombros, rodillas bajo la cadera.",
+    "Estirá un brazo hacia adelante y la pierna contraria hacia atrás, hasta la altura del cuerpo.",
+    "Sostené dos segundos con la espalda quieta, como si tuvieras un vaso apoyado en la cintura.",
+    "Volvé despacio y cambiá de lado."
+   ],
+   "avoid": [
+    "Levantar la pierna por encima de la cadera y arquear la espalda.",
+    "Girar la cadera hacia el costado."
+   ],
+   "easier": "Mover solo la pierna, o solo el brazo.",
+   "harder": "Pausa de cinco segundos en la extensión.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.78,
+       0.56
+      ],
+      "shoulder": [
+       0.68,
+       0.6
+      ],
+      "elbow": [
+       0.68,
+       0.76
+      ],
+      "hand": [
+       0.68,
+       0.92
+      ],
+      "hip": [
+       0.38,
+       0.6
+      ],
+      "knee": [
+       0.38,
+       0.92
+      ],
+      "ankle": [
+       0.18,
+       0.92
+      ],
+      "feet": false
+     }
+    },
+    {
+     "label": "Extensión",
+     "pose": {
+      "head": [
+       0.78,
+       0.56
+      ],
+      "shoulder": [
+       0.68,
+       0.6
+      ],
+      "elbow": [
+       0.82,
+       0.58
+      ],
+      "hand": [
+       0.95,
+       0.57
+      ],
+      "hip": [
+       0.38,
+       0.6
+      ],
+      "knee": [
+       0.21,
+       0.6
+      ],
+      "ankle": [
+       0.05,
+       0.61
+      ],
+      "elbow2": [
+       0.68,
+       0.76
+      ],
+      "hand2": [
+       0.68,
+       0.92
+      ],
+      "knee2": [
+       0.38,
+       0.92
+      ],
+      "ankle2": [
+       0.18,
+       0.92
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.95,
+        0.57
+       ],
+       "to": [
+        0.05,
+        0.61
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "side-plank",
+   "name": "Plancha lateral con rodillas",
+   "prescription": "2 × 20 s por lado",
+   "rest": "30 s",
+   "equipment": "Una colchoneta.",
+   "cues": [
+    "De costado, codo justo debajo del hombro y rodillas dobladas hacia atrás.",
+    "Subí la cadera hasta formar una línea de la cabeza a las rodillas.",
+    "Empujá el piso con el antebrazo para no hundirte en el hombro."
+   ],
+   "avoid": [
+    "Cadera caída hacia el piso.",
+    "Hombro pegado a la oreja."
+   ],
+   "easier": "Menos tiempo, 10 a 15 segundos.",
+   "harder": "Con las piernas estiradas, apoyando los pies.",
+   "frames": [
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.17,
+       0.58
+      ],
+      "shoulder": [
+       0.25,
+       0.63
+      ],
+      "elbow": [
+       0.25,
+       0.9
+      ],
+      "hand": [
+       0.4,
+       0.9
+      ],
+      "hip": [
+       0.53,
+       0.76
+      ],
+      "knee": [
+       0.8,
+       0.9
+      ],
+      "ankle": [
+       0.92,
+       0.8
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.17,
+        0.58
+       ],
+       "to": [
+        0.8,
+        0.9
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Evitá",
+     "pose": {
+      "head": [
+       0.17,
+       0.58
+      ],
+      "shoulder": [
+       0.25,
+       0.63
+      ],
+      "elbow": [
+       0.25,
+       0.9
+      ],
+      "hand": [
+       0.4,
+       0.9
+      ],
+      "hip": [
+       0.53,
+       0.86
+      ],
+      "knee": [
+       0.8,
+       0.9
+      ],
+      "ankle": [
+       0.92,
+       0.8
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.17,
+        0.58
+       ],
+       "to": [
+        0.8,
+        0.9
+       ]
+      }
+     ],
+     "wrong": true
+    }
+   ]
+  },
+  {
+   "id": "prone-y",
+   "name": "Y en el piso",
+   "prescription": "2 × 10",
+   "rest": "30 s",
+   "equipment": "Una colchoneta. Es el ejercicio de postura para contrarrestar las horas frente a la pantalla.",
+   "cues": [
+    "Boca abajo, brazos estirados por delante formando una Y, pulgares hacia el techo.",
+    "Llevá los omóplatos hacia atrás y abajo y despegá los brazos unos centímetros.",
+    "Sostené dos segundos con la mirada al piso."
+   ],
+   "avoid": [
+    "Levantar la cabeza o arquear el cuello.",
+    "Subir los hombros hacia las orejas."
+   ],
+   "easier": "Brazos en T, a los costados.",
+   "harder": "Pausa de cinco segundos, o una botella chica en cada mano.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.22,
+       0.86
+      ],
+      "shoulder": [
+       0.3,
+       0.88
+      ],
+      "elbow": [
+       0.18,
+       0.9
+      ],
+      "hand": [
+       0.06,
+       0.9
+      ],
+      "hip": [
+       0.56,
+       0.89
+      ],
+      "knee": [
+       0.72,
+       0.9
+      ],
+      "ankle": [
+       0.9,
+       0.9
+      ],
+      "feet": false
+     }
+    },
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.22,
+       0.86
+      ],
+      "shoulder": [
+       0.3,
+       0.88
+      ],
+      "elbow": [
+       0.18,
+       0.84
+      ],
+      "hand": [
+       0.06,
+       0.8
+      ],
+      "hip": [
+       0.56,
+       0.89
+      ],
+      "knee": [
+       0.72,
+       0.9
+      ],
+      "ankle": [
+       0.9,
+       0.9
+      ],
+      "feet": false
+     },
+     "guides": [
+      {
+       "from": [
+        0.3,
+        0.88
+       ],
+       "to": [
+        0.06,
+        0.8
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "calf-raise",
+   "name": "Elevación de talones",
+   "prescription": "2 × 15",
+   "rest": "30 s",
+   "equipment": "Una pared o una silla para apoyar las manos. Más adelante, el borde de un escalón.",
+   "cues": [
+    "De pie, pies al ancho de la cadera, manos apoyadas en la pared.",
+    "Subí a puntas de pie en un segundo, sostené uno arriba y bajá en tres.",
+    "El peso va sobre el dedo gordo y el segundo dedo, no hacia afuera."
+   ],
+   "avoid": [
+    "Rebotar abajo.",
+    "Doblar las rodillas para empujar."
+   ],
+   "easier": "Menos repeticiones, o subir con dos pies y bajar igual.",
+   "harder": "Una pierna a la vez, o desde el borde de un escalón.",
+   "frames": [
+    {
+     "label": "Abajo",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.62,
+       0.3
+      ],
+      "hand": [
+       0.76,
+       0.3
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.5,
+       0.72
+      ],
+      "ankle": [
+       0.5,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.78,
+       "top": 0.1,
+       "right": 0.82,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    },
+    {
+     "label": "Arriba",
+     "pose": {
+      "head": [
+       0.5,
+       0.06
+      ],
+      "shoulder": [
+       0.5,
+       0.18
+      ],
+      "elbow": [
+       0.62,
+       0.24
+      ],
+      "hand": [
+       0.76,
+       0.26
+      ],
+      "hip": [
+       0.5,
+       0.46
+      ],
+      "knee": [
+       0.5,
+       0.66
+      ],
+      "ankle": [
+       0.5,
+       0.85
+      ],
+      "footTo": [
+       0.56,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.78,
+       "top": 0.1,
+       "right": 0.82,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "calf-stretch",
+   "name": "Gemelos en la pared",
+   "prescription": "30 s por lado",
+   "rest": "—",
+   "equipment": "Una pared.",
+   "cues": [
+    "Manos en la pared, un pie adelante y el otro atrás con la pierna estirada.",
+    "Talón de atrás apoyado y la punta mirando a la pared.",
+    "Llevá la cadera hacia adelante hasta sentir el estiramiento en la pantorrilla."
+   ],
+   "avoid": [
+    "Despegar el talón de atrás.",
+    "Rebotar."
+   ],
+   "easier": "Pie de atrás más cerca.",
+   "harder": "Doblar un poco la rodilla de atrás para llegar al tendón de Aquiles.",
+   "frames": [
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.68,
+       0.2
+      ],
+      "shoulder": [
+       0.63,
+       0.3
+      ],
+      "elbow": [
+       0.75,
+       0.3
+      ],
+      "hand": [
+       0.86,
+       0.3
+      ],
+      "hip": [
+       0.5,
+       0.55
+      ],
+      "knee": [
+       0.63,
+       0.72
+      ],
+      "ankle": [
+       0.65,
+       0.92
+      ],
+      "knee2": [
+       0.39,
+       0.73
+      ],
+      "ankle2": [
+       0.27,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.87,
+       "top": 0.1,
+       "right": 0.91,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.5,
+        0.55
+       ],
+       "to": [
+        0.27,
+        0.92
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Evitá",
+     "pose": {
+      "head": [
+       0.68,
+       0.2
+      ],
+      "shoulder": [
+       0.63,
+       0.3
+      ],
+      "elbow": [
+       0.75,
+       0.3
+      ],
+      "hand": [
+       0.86,
+       0.3
+      ],
+      "hip": [
+       0.5,
+       0.55
+      ],
+      "knee": [
+       0.63,
+       0.72
+      ],
+      "ankle": [
+       0.65,
+       0.92
+      ],
+      "knee2": [
+       0.39,
+       0.72
+      ],
+      "ankle2": [
+       0.29,
+       0.86
+      ]
+     },
+     "props": [
+      {
+       "left": 0.87,
+       "top": 0.1,
+       "right": 0.91,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "wrong": true
+    }
+   ]
+  },
+  {
+   "id": "hip-flexor",
+   "name": "Flexor de cadera en estocada",
+   "prescription": "30 s por lado",
+   "rest": "—",
+   "equipment": "Un almohadón o una toalla doblada bajo la rodilla.",
+   "cues": [
+    "Rodilla de atrás en el piso, pie de adelante apoyado con la rodilla sobre el tobillo.",
+    "Apretá el glúteo de la pierna de atrás y llevá la cadera apenas hacia adelante.",
+    "Torso erguido: el estiramiento se siente adelante de la cadera de atrás."
+   ],
+   "avoid": [
+    "Arquear la zona lumbar.",
+    "Inclinar el torso hacia adelante."
+   ],
+   "easier": "Menos avance de la cadera.",
+   "harder": "Levantar el brazo del lado de atrás hacia el techo.",
+   "frames": [
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.46,
+       0.24
+      ],
+      "shoulder": [
+       0.46,
+       0.36
+      ],
+      "elbow": [
+       0.4,
+       0.48
+      ],
+      "hand": [
+       0.45,
+       0.6
+      ],
+      "hip": [
+       0.46,
+       0.64
+      ],
+      "knee": [
+       0.64,
+       0.66
+      ],
+      "ankle": [
+       0.65,
+       0.92
+      ],
+      "knee2": [
+       0.33,
+       0.9
+      ],
+      "ankle2": [
+       0.14,
+       0.92
+      ]
+     },
+     "guides": [
+      {
+       "from": [
+        0.46,
+        0.2
+       ],
+       "to": [
+        0.46,
+        0.66
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Evitá",
+     "pose": {
+      "head": [
+       0.6,
+       0.3
+      ],
+      "shoulder": [
+       0.54,
+       0.39
+      ],
+      "elbow": [
+       0.5,
+       0.52
+      ],
+      "hand": [
+       0.56,
+       0.62
+      ],
+      "hip": [
+       0.46,
+       0.64
+      ],
+      "knee": [
+       0.64,
+       0.66
+      ],
+      "ankle": [
+       0.65,
+       0.92
+      ],
+      "knee2": [
+       0.33,
+       0.9
+      ],
+      "ankle2": [
+       0.14,
+       0.92
+      ]
+     },
+     "guides": [
+      {
+       "from": [
+        0.46,
+        0.2
+       ],
+       "to": [
+        0.46,
+        0.66
+       ]
+      }
+     ],
+     "wrong": true
+    }
+   ]
+  },
+  {
+   "id": "hamstring-stretch",
+   "name": "Isquiotibiales en escalón",
+   "prescription": "30 s por lado",
+   "rest": "—",
+   "equipment": "Un escalón, banco bajo o silla.",
+   "cues": [
+    "Talón sobre el escalón, pierna estirada y punta del pie hacia arriba.",
+    "Llevá la cadera hacia atrás con la espalda recta, como en el peso muerto rumano.",
+    "Pará cuando sientas el estiramiento detrás del muslo, no en la espalda."
+   ],
+   "avoid": [
+    "Redondear la espalda para llegar más abajo.",
+    "Trabar la rodilla de apoyo."
+   ],
+   "easier": "Escalón más bajo.",
+   "harder": "Inclinarte un poco más, siempre con la espalda recta.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.42,
+       0.12
+      ],
+      "shoulder": [
+       0.42,
+       0.24
+      ],
+      "elbow": [
+       0.48,
+       0.36
+      ],
+      "hand": [
+       0.54,
+       0.46
+      ],
+      "hip": [
+       0.42,
+       0.52
+      ],
+      "knee": [
+       0.56,
+       0.64
+      ],
+      "ankle": [
+       0.72,
+       0.74
+      ],
+      "knee2": [
+       0.42,
+       0.72
+      ],
+      "ankle2": [
+       0.4,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.66,
+       "top": 0.76,
+       "right": 0.9,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    },
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.66,
+       0.3
+      ],
+      "shoulder": [
+       0.58,
+       0.36
+      ],
+      "elbow": [
+       0.6,
+       0.48
+      ],
+      "hand": [
+       0.6,
+       0.58
+      ],
+      "hip": [
+       0.36,
+       0.52
+      ],
+      "knee": [
+       0.54,
+       0.64
+      ],
+      "ankle": [
+       0.72,
+       0.74
+      ],
+      "knee2": [
+       0.38,
+       0.72
+      ],
+      "ankle2": [
+       0.38,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.66,
+       "top": 0.76,
+       "right": 0.9,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.31,
+        0.56
+       ],
+       "to": [
+        0.66,
+        0.3
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "chest-opener",
+   "name": "Apertura de pecho en el marco",
+   "prescription": "30 s por lado",
+   "rest": "—",
+   "equipment": "El marco de una puerta.",
+   "cues": [
+    "Antebrazo apoyado en el marco, codo a la altura del hombro.",
+    "Dá un paso corto hacia adelante hasta sentir el estiramiento en el pecho.",
+    "Mantené el abdomen firme y el cuello largo."
+   ],
+   "avoid": [
+    "Arquear la espalda para avanzar más.",
+    "Codo por encima de la cabeza si molesta el hombro."
+   ],
+   "easier": "Codo más bajo.",
+   "harder": "Un paso más largo.",
+   "frames": [
+    {
+     "label": "Inicio",
+     "pose": {
+      "head": [
+       0.45,
+       0.12
+      ],
+      "shoulder": [
+       0.45,
+       0.24
+      ],
+      "elbow": [
+       0.37,
+       0.24
+      ],
+      "hand": [
+       0.37,
+       0.12
+      ],
+      "hip": [
+       0.45,
+       0.52
+      ],
+      "knee": [
+       0.5,
+       0.72
+      ],
+      "ankle": [
+       0.5,
+       0.92
+      ],
+      "knee2": [
+       0.44,
+       0.72
+      ],
+      "ankle2": [
+       0.42,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.33,
+       "top": 0.04,
+       "right": 0.36,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    },
+    {
+     "label": "Estiramiento",
+     "pose": {
+      "head": [
+       0.56,
+       0.13
+      ],
+      "shoulder": [
+       0.54,
+       0.25
+      ],
+      "elbow": [
+       0.39,
+       0.25
+      ],
+      "hand": [
+       0.38,
+       0.13
+      ],
+      "hip": [
+       0.52,
+       0.52
+      ],
+      "knee": [
+       0.62,
+       0.72
+      ],
+      "ankle": [
+       0.64,
+       0.92
+      ],
+      "knee2": [
+       0.47,
+       0.72
+      ],
+      "ankle2": [
+       0.42,
+       0.92
+      ]
+     },
+     "props": [
+      {
+       "left": 0.33,
+       "top": 0.04,
+       "right": 0.36,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "quad-stretch",
+   "name": "Cuádriceps de pie con apoyo",
+   "prescription": "30 s por lado",
+   "rest": "—",
+   "equipment": "Una pared o silla para apoyarte.",
+   "cues": [
+    "Una mano en la pared; con la otra tomá el tobillo y llevá el talón hacia el glúteo.",
+    "Rodillas juntas y apuntando al piso.",
+    "Apretá el glúteo de la pierna estirada para sentirlo adelante del muslo."
+   ],
+   "avoid": [
+    "Rodilla que se va hacia adelante o al costado.",
+    "Arquear la espalda."
+   ],
+   "easier": "Apoyar el pie en una silla detrás tuyo.",
+   "harder": "Sin apoyo, si el equilibrio lo permite.",
+   "frames": [
+    {
+     "label": "Bien",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.45,
+       0.42
+      ],
+      "hand": [
+       0.41,
+       0.56
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.5,
+       0.74
+      ],
+      "ankle": [
+       0.4,
+       0.57
+      ],
+      "elbow2": [
+       0.62,
+       0.28
+      ],
+      "hand2": [
+       0.74,
+       0.26
+      ],
+      "knee2": [
+       0.5,
+       0.72
+      ],
+      "ankle2": [
+       0.5,
+       0.92
+      ],
+      "feet": false
+     },
+     "props": [
+      {
+       "left": 0.76,
+       "top": 0.1,
+       "right": 0.8,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.5,
+        0.52
+       ],
+       "to": [
+        0.5,
+        0.92
+       ]
+      }
+     ]
+    },
+    {
+     "label": "Evitá",
+     "pose": {
+      "head": [
+       0.5,
+       0.12
+      ],
+      "shoulder": [
+       0.5,
+       0.24
+      ],
+      "elbow": [
+       0.47,
+       0.42
+      ],
+      "hand": [
+       0.47,
+       0.56
+      ],
+      "hip": [
+       0.5,
+       0.52
+      ],
+      "knee": [
+       0.62,
+       0.66
+      ],
+      "ankle": [
+       0.48,
+       0.58
+      ],
+      "elbow2": [
+       0.62,
+       0.28
+      ],
+      "hand2": [
+       0.74,
+       0.26
+      ],
+      "knee2": [
+       0.5,
+       0.72
+      ],
+      "ankle2": [
+       0.5,
+       0.92
+      ],
+      "feet": false
+     },
+     "props": [
+      {
+       "left": 0.76,
+       "top": 0.1,
+       "right": 0.8,
+       "bottom": 0.92,
+       "type": "block"
+      }
+     ],
+     "guides": [
+      {
+       "from": [
+        0.5,
+        0.52
+       ],
+       "to": [
+        0.5,
+        0.92
+       ]
+      }
+     ],
+     "wrong": true
+    }
+   ]
+  }
+ ]
+}

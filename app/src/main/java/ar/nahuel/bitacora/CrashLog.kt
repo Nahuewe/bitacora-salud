@@ -9,10 +9,9 @@ class CrashLog(context: Context) {
 
     private val prefs = context.getSharedPreferences("crash_log", Context.MODE_PRIVATE)
 
-    fun install(isolate: (Thread, Throwable) -> Boolean = { _, _ -> false }) {
+    fun install() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            if (runCatching { isolate(thread, error) }.getOrDefault(false)) return@setDefaultUncaughtExceptionHandler
             runCatching { record(thread, error) }
             previous?.uncaughtException(thread, error)
         }

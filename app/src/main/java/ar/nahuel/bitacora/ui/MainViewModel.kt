@@ -1,45 +1,41 @@
 package ar.nahuel.bitacora.ui
 
 import android.app.Application
+import android.net.Uri
 import android.os.RemoteException
+import androidx.health.connect.client.records.ExerciseRoute
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ar.nahuel.bitacora.BitacoraApplication
+import ar.nahuel.bitacora.CrashReport
+import ar.nahuel.bitacora.account.AccountState
+import ar.nahuel.bitacora.account.SyncUi
+import ar.nahuel.bitacora.data.ActivityData
 import ar.nahuel.bitacora.domain.Dashboard
 import ar.nahuel.bitacora.domain.DashboardBuilder
+import ar.nahuel.bitacora.domain.HealthSnapshot
 import ar.nahuel.bitacora.domain.Recommendation
+import ar.nahuel.bitacora.domain.Route
+import ar.nahuel.bitacora.domain.StrengthProgram
 import ar.nahuel.bitacora.domain.Trends
 import ar.nahuel.bitacora.domain.TrendsBuilder
-import ar.nahuel.bitacora.CrashReport
-import ar.nahuel.bitacora.domain.HealthSnapshot
-import ar.nahuel.bitacora.domain.StrengthProgram
-import ar.nahuel.bitacora.routine.RoutineEntry
-import ar.nahuel.bitacora.samsung.SamsungStatus
-import ar.nahuel.bitacora.samsung.mergeSnapshot
-import ar.nahuel.bitacora.domain.ExerciseKind
-import ar.nahuel.bitacora.domain.Geo
-import ar.nahuel.bitacora.domain.Route
-import ar.nahuel.bitacora.domain.RouteSource
-import ar.nahuel.bitacora.domain.RouteTrack
-import ar.nahuel.bitacora.domain.Zone
-import android.net.Uri
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.cancellation.CancellationException
 import ar.nahuel.bitacora.health.HealthAccess
 import ar.nahuel.bitacora.health.HealthConnectAvailability
-import ar.nahuel.bitacora.remote.ApiError
+import ar.nahuel.bitacora.routine.RoutineEntry
+import ar.nahuel.bitacora.samsung.SamsungStatus
 import ar.nahuel.bitacora.sync.SyncOutcome
-import ar.nahuel.bitacora.sync.SyncService
-import ar.nahuel.bitacora.sync.SyncTrigger
+import ar.nahuel.bitacora.ui.map.MapState
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class Tab { SHEET, TRENDS, ROUTINE, LOG, SETTINGS }
 
@@ -57,26 +53,14 @@ sealed interface ContentState {
     data class Error(val message: String) : ContentState
 }
 
-sealed interface AccountState {
-    data object NotConfigured : AccountState
-    data object SignedOut : AccountState
-    data object SigningIn : AccountState
-    data class SignedIn(val email: String) : AccountState
-    data class Failed(val message: String) : AccountState
-}
-
-data class SyncUi(
-    val running: Boolean = false,
-    val lastSuccess: Instant? = null,
-    val message: String? = null,
-    val messageIsError: Boolean = false,
-)
+data class Freshness(val savedAt: Instant, val updating: Boolean, val stale: Boolean)
 
 data class UiState(
     val tab: Tab = Tab.SHEET,
     val today: LocalDate = LocalDate.now(),
     val access: AccessState = AccessState.Checking,
     val content: ContentState = ContentState.Loading,
+    val freshness: Freshness? = null,
     val account: AccountState = AccountState.SignedOut,
     val sync: SyncUi = SyncUi(),
     val backgroundGranted: Boolean = false,
@@ -84,36 +68,17 @@ data class UiState(
     val crash: CrashReport? = null,
     val samsungDiagnostics: String? = null,
     val samsung: SamsungStatus? = null,
+    val samsungNote: String? = null,
     val routine: RoutineUi = RoutineUi(),
     val showMap: Boolean = false,
     val map: MapState = MapState.Idle,
 )
 
-data class MapData(
-    val tracks: List<RouteTrack>,
-    val zones: List<Zone>,
-    val speedBreaks: List<Double>,
-    val heartBreaks: List<Double>,
-    val fromHealthConnect: Int,
-    val imported: Int,
-    val consentRequired: Int,
-    val consentIds: List<String> = emptyList(),
-    val checked: Int = 0,
-    val withoutRoute: Int = 0,
-    val routePermission: Boolean = false,
-    val fromSamsung: Int = 0,
-)
-
-sealed interface MapState {
-    data object Idle : MapState
-    data class Loading(val message: String) : MapState
-    data class Ready(val data: MapData, val message: String? = null) : MapState
-    data class Error(val message: String) : MapState
-}
-
 data class RoutineUi(
     val week: Int = 1,
     val entries: List<RoutineEntry> = emptyList(),
+    val program: StrengthProgram? = null,
+    val programError: String? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -126,13 +91,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastLoadedAt = 0L
     private var lastSnapshot: HealthSnapshot? = null
-    private var samsungRoutes: List<ar.nahuel.bitacora.domain.Route> = emptyList()
+    private var samsungRoutes: List<Route> = emptyList()
 
     init {
-        refreshAccount()
-        _state.update { it.copy(crash = graph.crashLog.last(), samsungDiagnostics = runCatching { graph.samsung.diagnostics() }.getOrNull()) }
-        refreshRoutine()
+        _state.update {
+            it.copy(
+                account = graph.account.current(),
+                crash = graph.crashLog.last(),
+                samsungDiagnostics = runCatching { graph.samsung.diagnostics() }.getOrNull(),
+            )
+        }
+        viewModelScope.launch { loadProgram() }
         refresh(force = true)
+    }
+
+    private suspend fun loadProgram() {
+        val result = withContext(Dispatchers.IO) { runCatching { graph.program() } }
+        _state.update { state ->
+            state.copy(
+                routine = state.routine.copy(
+                    program = result.getOrNull(),
+                    programError = result.exceptionOrNull()?.let { "No se pudo cargar la rutina: ${it.message ?: it.javaClass.simpleName}" },
+                ),
+            )
+        }
+        refreshRoutine()
     }
 
     fun toggleRoutine(routineId: String) {
@@ -150,20 +133,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loggedStrengthDays(): List<LocalDate> =
-        graph.routineLog.entries().filter { it.routineId in StrengthProgram.strengthIds }.map { it.date }
+    private fun loggedStrengthDays(): List<LocalDate> {
+        val strengthIds = _state.value.routine.program?.strengthIds ?: return emptyList()
+        return graph.routineLog.entries().filter { it.routineId in strengthIds }.map { it.date }
+    }
 
     private fun refreshRoutine() {
         val today = LocalDate.now()
         val start = graph.routineLog.startDate(today)
         _state.update {
-            it.copy(routine = RoutineUi(StrengthProgram.weekNumber(start, today), graph.routineLog.entries()))
+            it.copy(routine = it.routine.copy(week = StrengthProgram.weekNumber(start, today), entries = graph.routineLog.entries()))
         }
     }
 
     fun onSamsungStatus(status: SamsungStatus) {
-        _state.update { it.copy(samsung = status, map = MapState.Idle) }
-        if (status == SamsungStatus.Ready) refresh(force = true)
+        _state.update { it.copy(samsung = status, samsungNote = null, map = MapState.Idle) }
+        if (status == SamsungStatus.Ready) refresh(force = true, full = true)
     }
 
     fun clearCrash() {
@@ -184,59 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(map = MapState.Loading("Buscando recorridos…")) }
         viewModelScope.launch {
             val next = try {
-                val sessions = lastSnapshot?.sessions.orEmpty()
-                val walks = sessions.filter {
-                    (it.kind == ExerciseKind.WALKING || it.kind == ExerciseKind.RUNNING) &&
-                        it.start.isAfter(java.time.Instant.now().minus(java.time.Duration.ofDays(ROUTE_DAYS)))
-                }
-                val samsung = samsungRoutes
-                val walksWithoutSamsung = walks.filter { walk -> samsung.none { Geo.matchSession(it, listOf(walk)) != null } }
-                val fromHc = runCatching { graph.health.routes(walksWithoutSamsung) }.getOrNull()
-                val routePermission = runCatching { HealthAccess.ROUTES in graph.health.grantedPermissions() }.getOrDefault(false)
-                val imported = graph.routeStore.load()
-                val hcRoutes = samsung + fromHc?.routes.orEmpty()
-                val importedOnly = imported.filter { route ->
-                    val session = Geo.matchSession(route, sessions)
-                    session == null || hcRoutes.none { Geo.matchSession(it, listOf(session)) != null }
-                }
-                val routes = (hcRoutes + importedOnly).sortedBy { it.start }
-                if (routes.isEmpty()) {
-                    MapState.Ready(
-                        MapData(
-                            tracks = emptyList(), zones = emptyList(), speedBreaks = emptyList(), heartBreaks = emptyList(),
-                            fromHealthConnect = 0, imported = 0,
-                            consentRequired = fromHc?.consentRequired ?: 0,
-                            consentIds = fromHc?.consentIds.orEmpty(),
-                            checked = fromHc?.checked ?: walks.size,
-                            withoutRoute = fromHc?.withoutRoute ?: 0,
-                            routePermission = routePermission,
-                        ),
-                        message,
-                    )
-                } else {
-                    val heart = graph.health.heartRateSamples(routes.first().start, routes.last().end)
-                    val data = withContext(Dispatchers.Default) {
-                        val tracks = routes.map { route ->
-                            RouteTrack(route, Geo.segments(route) { route.heartAt(it) ?: heart.at(it) }, Geo.matchSession(route, sessions))
-                        }
-                        val segments = tracks.flatMap { it.segments }
-                        MapData(
-                            tracks = tracks,
-                            zones = Geo.zones(tracks),
-                            speedBreaks = Geo.breaks(segments.map { it.speedKmh }),
-                            heartBreaks = Geo.breaks(segments.mapNotNull { it.heartRate?.toDouble() }),
-                            fromHealthConnect = fromHc?.routes.orEmpty().size,
-                            fromSamsung = samsung.size,
-                            imported = importedOnly.size,
-                            consentRequired = fromHc?.consentRequired ?: 0,
-                            consentIds = fromHc?.consentIds.orEmpty(),
-                            checked = fromHc?.checked ?: walks.size,
-                            withoutRoute = fromHc?.withoutRoute ?: 0,
-                            routePermission = routePermission,
-                        )
-                    }
-                    MapState.Ready(data, message)
-                }
+                MapState.Ready(graph.maps.load(lastSnapshot?.sessions.orEmpty(), samsungRoutes), message)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -250,15 +183,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(map = MapState.Loading("Leyendo la exportación de Samsung Health…")) }
         viewModelScope.launch {
             val message = try {
-                val result = graph.routeImporter.import(tree)
-                val existing = graph.routeStore.load()
-                val merged = (existing + result.routes).distinctBy { it.id }
-                graph.routeStore.save(merged)
-                when {
-                    result.filesRead == 0 -> "No encontré archivos de recorridos en esa carpeta. Elegí la carpeta samsunghealth_… completa."
-                    result.routes.isEmpty() -> "Leí ${result.filesRead} archivos pero ninguno tenía puntos de GPS válidos."
-                    else -> "Importé ${result.routes.size} recorridos de ${result.filesRead} archivos."
-                }
+                graph.maps.import(tree)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -268,126 +193,108 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onRouteConsent(recordId: String, route: androidx.health.connect.client.records.ExerciseRoute?) {
-        if (route == null) {
-            loadMap("No se autorizó el recorrido.")
-            return
-        }
+    fun onRouteConsent(recordId: String, route: ExerciseRoute?) {
         viewModelScope.launch {
             val session = lastSnapshot?.sessions?.firstOrNull { it.id == recordId }
-            val points = route.route
-                .filter { Geo.isValid(it.latitude, it.longitude) }
-                .map { ar.nahuel.bitacora.domain.RoutePoint(it.time.toEpochMilli(), it.latitude, it.longitude) }
-            if (session != null && points.size >= 5) {
-                val stored = graph.routeStore.load()
-                graph.routeStore.save((stored + Route(recordId, session.start, session.end, Geo.thin(points), RouteSource.HEALTH_CONNECT)).distinctBy { it.id })
-                loadMap("Recorrido agregado.")
-            } else {
-                loadMap("Health Connect devolvió el recorrido vacío.")
-            }
+            loadMap(graph.maps.addConsented(session, route))
         }
     }
 
     fun clearImportedRoutes() {
         viewModelScope.launch {
-            graph.routeStore.clear()
+            graph.maps.clearImported()
             loadMap("Borré los recorridos importados de este teléfono.")
         }
     }
 
-    fun refresh(force: Boolean = false) {
+    fun refresh(force: Boolean = false, full: Boolean = false) {
         val now = System.currentTimeMillis()
         if (!force && _state.value.content is ContentState.Loaded && now - lastLoadedAt < RELOAD_INTERVAL_MS) return
         viewModelScope.launch {
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
-            _state.update { it.copy(today = today, sync = it.sync.copy(lastSuccess = graph.syncState.read().lastSuccess)) }
+            _state.update { it.copy(today = today, sync = it.sync.copy(lastSuccess = graph.account.lastSuccess())) }
 
-            when (graph.health.availability()) {
-                HealthConnectAvailability.UNAVAILABLE -> {
-                    _state.update { it.copy(access = AccessState.HealthConnectMissing(needsUpdate = false)) }
-                    return@launch
-                }
-                HealthConnectAvailability.NEEDS_UPDATE -> {
-                    _state.update { it.copy(access = AccessState.HealthConnectMissing(needsUpdate = true)) }
-                    return@launch
-                }
-                HealthConnectAvailability.AVAILABLE -> Unit
-            }
+            if (!checkAccess()) return@launch
 
-            val granted = runCatching { graph.health.grantedPermissions() }.getOrDefault(emptySet())
-            _state.update {
-                it.copy(
-                    backgroundGranted = HealthAccess.BACKGROUND in granted,
-                    historyGranted = HealthAccess.HISTORY in granted,
-                )
+            if (_state.value.content !is ContentState.Loaded) {
+                graph.activity.cached(zone)?.let { show(it, today, updating = true) }
             }
-            if (!granted.containsAll(HealthAccess.core)) {
-                _state.update { it.copy(access = AccessState.PermissionsNeeded) }
-                return@launch
-            }
+            _state.update { it.copy(freshness = it.freshness?.copy(updating = true)) }
 
-            _state.update {
-                it.copy(
-                    access = AccessState.Ready,
-                    content = if (it.content is ContentState.Loaded) it.content else ContentState.Loading,
-                )
-            }
-            val content = try {
-                val hcSnapshot = graph.health.snapshot(today.minusDays(DISPLAY_DAYS), today, zone)
-                val samsungStatus = graph.samsung.status()
-                _state.update { it.copy(samsung = samsungStatus) }
-                val samsungData = if (samsungStatus == SamsungStatus.Ready) {
-                    try {
-                        graph.samsung.load(today.minusDays(DISPLAY_DAYS), today, zone).let { loaded ->
-                            if (loaded.failed.isNotEmpty()) {
-                                val detail = loaded.fault?.let { " ($it)" }.orEmpty()
-                                val message = if (loaded.usable) {
-                                    "Samsung Health no entregó: ${loaded.failed.joinToString(", ")}$detail. Eso lo completo con Health Connect."
-                                } else {
-                                    "Samsung Health no pudo entregar datos$detail. Uso Health Connect."
-                                }
-                                _state.update { it.copy(samsung = SamsungStatus.Unavailable(message)) }
-                            }
-                            loaded.takeIf { it.usable }
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        _state.update { it.copy(samsung = SamsungStatus.Unavailable("Samsung Health no respondió (${e.javaClass.simpleName}). Uso Health Connect.")) }
-                        null
-                    } catch (e: LinkageError) {
-                        _state.update { it.copy(samsung = SamsungStatus.Unavailable("Samsung Health no es compatible (${e.javaClass.simpleName}). Uso Health Connect.")) }
-                        null
-                    }
-                } else {
-                    null
-                }
-                samsungRoutes = samsungData?.routes.orEmpty()
-                val snapshot = if (samsungData != null) mergeSnapshot(hcSnapshot, samsungData) else hcSnapshot
-                lastSnapshot = snapshot
-                val hasAnything = snapshot.days.isNotEmpty() || snapshot.sessions.isNotEmpty() || snapshot.sleeps.isNotEmpty()
-                if (!hasAnything) {
-                    ContentState.Empty
-                } else {
-                    lastLoadedAt = System.currentTimeMillis()
-                    ContentState.Loaded(
-                        dashboard = DashboardBuilder.build(snapshot, today),
-                        notes = graph.engine.evaluate(snapshot, today, loggedStrengthDays()),
-                        trends = TrendsBuilder.build(snapshot, today),
-                    )
-                }
+            try {
+                val data = graph.activity.refresh(today, zone, full)
+                _state.update { it.copy(samsung = data.samsungStatus, samsungNote = data.note) }
+                show(data, today, updating = false)
+                lastLoadedAt = System.currentTimeMillis()
             } catch (e: SecurityException) {
                 _state.update { it.copy(access = AccessState.PermissionsNeeded) }
-                return@launch
-            } catch (e: RemoteException) {
-                ContentState.Error("Health Connect no respondió. Probá de nuevo en unos segundos.")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ContentState.Error("No se pudieron leer los datos de Health Connect (${e.javaClass.simpleName}).")
+                val message = if (e is RemoteException) {
+                    "Health Connect no respondió. Probá de nuevo en unos segundos."
+                } else {
+                    "No se pudieron leer los datos de Health Connect (${e.javaClass.simpleName})."
+                }
+                _state.update { state ->
+                    if (state.content is ContentState.Loaded) {
+                        state.copy(freshness = state.freshness?.copy(updating = false, stale = true))
+                    } else {
+                        state.copy(content = ContentState.Error(message), freshness = null)
+                    }
+                }
             }
-            _state.update { it.copy(content = content) }
+        }
+    }
+
+    private suspend fun checkAccess(): Boolean {
+        when (graph.health.availability()) {
+            HealthConnectAvailability.UNAVAILABLE -> {
+                _state.update { it.copy(access = AccessState.HealthConnectMissing(needsUpdate = false)) }
+                return false
+            }
+            HealthConnectAvailability.NEEDS_UPDATE -> {
+                _state.update { it.copy(access = AccessState.HealthConnectMissing(needsUpdate = true)) }
+                return false
+            }
+            HealthConnectAvailability.AVAILABLE -> Unit
+        }
+        val granted = runCatching { graph.health.grantedPermissions() }.getOrDefault(emptySet())
+        val ready = granted.containsAll(HealthAccess.core)
+        _state.update {
+            it.copy(
+                backgroundGranted = HealthAccess.BACKGROUND in granted,
+                historyGranted = HealthAccess.HISTORY in granted,
+                access = if (ready) AccessState.Ready else AccessState.PermissionsNeeded,
+            )
+        }
+        return ready
+    }
+
+    private suspend fun show(data: ActivityData, today: LocalDate, updating: Boolean) {
+        lastSnapshot = data.snapshot
+        samsungRoutes = data.samsungRoutes
+        val snapshot = data.snapshot
+        val hasAnything = snapshot.days.isNotEmpty() || snapshot.sessions.isNotEmpty() || snapshot.sleeps.isNotEmpty()
+        val content = if (!hasAnything) {
+            ContentState.Empty
+        } else {
+            val strengthDays = loggedStrengthDays()
+            withContext(Dispatchers.Default) {
+                ContentState.Loaded(
+                    dashboard = DashboardBuilder.build(snapshot, today),
+                    notes = graph.engine.evaluate(snapshot, today, strengthDays),
+                    trends = TrendsBuilder.build(snapshot, today),
+                )
+            }
+        }
+        _state.update {
+            it.copy(
+                content = content,
+                freshness = Freshness(data.savedAt, updating = updating, stale = false),
+                map = if (data.fromCache) it.map else MapState.Idle,
+            )
         }
     }
 
@@ -397,23 +304,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signIn(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            _state.update { it.copy(account = AccountState.Failed("Completá email y contraseña.")) }
-            return
-        }
         _state.update { it.copy(account = AccountState.SigningIn) }
         viewModelScope.launch {
-            val next = try {
-                AccountState.SignedIn(graph.auth.signIn(email, password).email)
-            } catch (e: ApiError.InvalidCredentials) {
-                AccountState.Failed("Email o contraseña incorrectos.")
-            } catch (e: ApiError.RateLimited) {
-                AccountState.Failed("Demasiados intentos. Esperá unos minutos.")
-            } catch (e: ApiError.Network) {
-                AccountState.Failed("Sin conexión. Revisá internet y volvé a intentar.")
-            } catch (e: ApiError) {
-                AccountState.Failed("No se pudo iniciar sesión (${e.code}).")
-            }
+            val next = graph.account.signIn(email, password)
             _state.update { it.copy(account = next) }
             if (next is AccountState.SignedIn) syncNow()
         }
@@ -421,8 +314,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun signOut() {
         viewModelScope.launch {
-            graph.auth.signOut()
-            graph.syncState.reset()
+            graph.account.signOut()
             _state.update { it.copy(account = AccountState.SignedOut, sync = SyncUi()) }
         }
     }
@@ -431,56 +323,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.sync.running) return
         _state.update { it.copy(sync = it.sync.copy(running = true, message = null)) }
         viewModelScope.launch {
-            val outcome = graph.sync.run(SyncTrigger.MANUAL)
-            val (message, isError) = describe(outcome)
-            _state.update {
-                it.copy(
-                    sync = SyncUi(
-                        running = false,
-                        lastSuccess = graph.syncState.read().lastSuccess,
-                        message = message,
-                        messageIsError = isError,
-                    ),
-                )
-            }
-            if (outcome is SyncOutcome.NotSignedIn) refreshAccount()
+            val (sync, outcome) = graph.account.syncNow()
+            _state.update { it.copy(sync = sync) }
+            if (outcome is SyncOutcome.NotSignedIn) _state.update { it.copy(account = graph.account.current()) }
             refreshRoutine()
         }
     }
 
-    private fun refreshAccount() {
-        val account = when {
-            !graph.auth.isConfigured -> AccountState.NotConfigured
-            else -> graph.auth.currentEmail()?.let { AccountState.SignedIn(it) } ?: AccountState.SignedOut
-        }
-        _state.update { it.copy(account = account) }
-    }
-
-    private fun describe(outcome: SyncOutcome): Pair<String, Boolean> = when (outcome) {
-        is SyncOutcome.Success -> {
-            val total = outcome.counts.values.filter { it > 0 }.sum()
-            if (outcome.counts["strength_logs"] == SyncService.STRENGTH_TABLE_MISSING) {
-                "Sincronizado: $total registros. Las sesiones de fuerza no se subieron: falta ejecutar la migración strength_logs en Supabase." to true
-            } else {
-                "Sincronizado: $total registros enviados." to false
-            }
-        }
-        SyncOutcome.AlreadyRunning -> "Ya hay una sincronización en curso." to false
-        SyncOutcome.NotConfigured -> "La app se compiló sin datos de Supabase." to true
-        SyncOutcome.NotSignedIn -> "Iniciá sesión para sincronizar." to true
-        SyncOutcome.HealthConnectUnavailable -> "Health Connect no está disponible." to true
-        SyncOutcome.MissingPermissions -> "Faltan permisos de Health Connect." to true
-        is SyncOutcome.Failed -> when {
-            outcome.code == "network" -> "Sin conexión. Se reintenta solo en la próxima ventana." to true
-            outcome.code == "unauthorized" -> "La sesión venció. Volvé a iniciar sesión." to true
-            outcome.code.startsWith("rejected_") -> "Supabase rechazó los datos (${outcome.code}). Revisá que la migración esté aplicada." to true
-            else -> "Falló la sincronización (${outcome.code})." to true
-        }
-    }
-
     private companion object {
-        const val DISPLAY_DAYS = 182L
-        const val ROUTE_DAYS = 120L
         const val RELOAD_INTERVAL_MS = 5 * 60 * 1000L
     }
 }
