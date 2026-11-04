@@ -29,8 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.selection.SelectionContainer
 import ar.nahuel.bitacora.CrashReport
 import ar.nahuel.bitacora.samsung.SamsungStatus
-import ar.nahuel.bitacora.ui.AccountState
-import ar.nahuel.bitacora.ui.SyncUi
+import ar.nahuel.bitacora.account.AccountState
+import ar.nahuel.bitacora.ui.components.SamsungNotice
+import ar.nahuel.bitacora.account.SyncUi
 import ar.nahuel.bitacora.ui.components.KeyValueRow
 import ar.nahuel.bitacora.ui.components.LedgerButton
 import ar.nahuel.bitacora.ui.components.LedgerField
@@ -53,6 +54,7 @@ fun SettingsScreen(
     samsungDiagnostics: String?,
     onClearCrash: () -> Unit,
     samsung: SamsungStatus?,
+    samsungNote: String?,
     onConnectSamsung: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onSignOut: () -> Unit,
@@ -90,27 +92,7 @@ fun SettingsScreen(
         }
 
         SectionHeader("Samsung Health · reloj")
-        Text(
-            when (samsung) {
-                SamsungStatus.Ready -> "Conectado. Los pasos, el tiempo activo y las caminatas con su recorrido salen directo de Samsung Health, con lo que mide el reloj."
-                SamsungStatus.NeedsPermission -> "Falta autorizar la lectura. Sin esto, la app usa Health Connect, que puede no tener todos los pasos del reloj."
-                is SamsungStatus.NeedsResolution -> samsung.message
-                is SamsungStatus.Unavailable -> samsung.message
-                is SamsungStatus.Paused -> samsung.message
-                null -> "Revisando…"
-            },
-            style = Type.body,
-            color = if (samsung == SamsungStatus.Ready) ink.good else ink.inkSoft,
-            modifier = Modifier.padding(vertical = 14.dp),
-        )
-        if (samsung != SamsungStatus.Ready && samsungDiagnostics != null) {
-            SelectionContainer {
-                Text(samsungDiagnostics, style = Type.figureSmall, color = ink.inkSoft, modifier = Modifier.padding(bottom = 14.dp))
-            }
-        }
-        if (samsung != SamsungStatus.Ready) {
-            LedgerButton(if (samsung is SamsungStatus.Paused) "Reintentar Samsung Health" else "Conectar Samsung Health", onConnectSamsung, filled = true)
-        }
+        SamsungNotice(samsung, samsungNote, onConnectSamsung, detail = samsungDiagnostics, prominent = true)
 
         SectionHeader("Sincronización")
         KeyValueRow(

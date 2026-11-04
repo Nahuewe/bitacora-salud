@@ -6,7 +6,6 @@ import ar.nahuel.bitacora.domain.DayActivity
 import ar.nahuel.bitacora.domain.ExerciseKind
 import ar.nahuel.bitacora.domain.ExerciseSession
 import ar.nahuel.bitacora.domain.Geo
-import ar.nahuel.bitacora.domain.HealthSnapshot
 import ar.nahuel.bitacora.domain.HeartPoint
 import ar.nahuel.bitacora.domain.Route
 import ar.nahuel.bitacora.domain.RoutePoint
@@ -25,31 +24,10 @@ import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeGroup
 import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.coroutines.cancellation.CancellationException
-
-sealed interface SamsungStatus {
-    data object Ready : SamsungStatus
-    data object NeedsPermission : SamsungStatus
-    data class NeedsResolution(val message: String) : SamsungStatus
-    data class Unavailable(val message: String) : SamsungStatus
-    data class Paused(val message: String) : SamsungStatus
-}
-
-data class SamsungActivity(
-    val days: List<DayActivity>,
-    val sessions: List<ExerciseSession>,
-    val routes: List<Route>,
-    val failed: List<String> = emptyList(),
-    val fault: String? = null,
-) {
-    val usable: Boolean get() = failed.size < PARTS
-}
-
-private const val PARTS = 5
 
 class SamsungHealthSource(private val context: Context) {
 
@@ -122,10 +100,10 @@ class SamsungHealthSource(private val context: Context) {
             fault = e
             empty
         }
-        val steps = part("pasos", emptyMap()) { daily(DataType.StepsType.TOTAL, filter) }
-        val activeTime = part("tiempo activo", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME, filter) }
-        val distance = part("distancia", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_DISTANCE, filter) }
-        val calories = part("calorías", emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED, filter) }
+        val steps = part(SamsungParts.STEPS, emptyMap()) { daily(DataType.StepsType.TOTAL, filter) }
+        val activeTime = part(SamsungParts.ACTIVE_TIME, emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME, filter) }
+        val distance = part(SamsungParts.DISTANCE, emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_DISTANCE, filter) }
+        val calories = part(SamsungParts.CALORIES, emptyMap()) { daily(DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED, filter) }
 
         val dates = (steps.keys + activeTime.keys).filter { !it.isBefore(from) && !it.isAfter(toInclusive) }.sortedBy { it.toEpochDay() }
         val days = dates.map { date ->
@@ -141,7 +119,7 @@ class SamsungHealthSource(private val context: Context) {
 
         val sessions = mutableListOf<ExerciseSession>()
         val routes = mutableListOf<Route>()
-        part("caminatas", emptyList()) { exercisePoints(filter) }.distinctBy { it.uid ?: it.startTime.toEpochMilli().toString() }.forEach { point ->
+        part(SamsungParts.WALKS, emptyList()) { exercisePoints(filter) }.distinctBy { it.uid ?: it.startTime.toEpochMilli().toString() }.forEach { point ->
             val predefined = point.getValue(DataType.ExerciseType.EXERCISE_TYPE)
             val title = point.getValue(DataType.ExerciseType.CUSTOM_TITLE)
             point.getValue(DataType.ExerciseType.SESSIONS).orEmpty().forEachIndexed { index, session ->
@@ -262,46 +240,4 @@ class SamsungHealthSource(private val context: Context) {
         private const val MIN_ROUTE_POINTS = 5
         private const val CALL_TIMEOUT_MS = 20_000L
     }
-}
-
-fun mergeSessions(primary: List<ExerciseSession>, fallback: List<ExerciseSession>): List<ExerciseSession> {
-    val used = mutableSetOf<String>()
-    val aligned = primary.map { session ->
-        val match = fallback.firstOrNull {
-            it.id !in used && Duration.between(it.start, session.start).abs() <= Duration.ofMinutes(3)
-        }
-        if (match != null) {
-            used += match.id
-            session.copy(id = match.id)
-        } else {
-            session
-        }
-    }
-    val extra = fallback.filter { it.id !in used && aligned.none { s -> overlaps(s, it) } }
-    return (aligned + extra).distinctBy { it.id }.sortedBy { it.start }
-}
-
-private fun overlaps(a: ExerciseSession, b: ExerciseSession): Boolean =
-    a.start.isBefore(b.end) && b.start.isBefore(a.end)
-
-
-fun mergeSnapshot(hc: HealthSnapshot, samsung: SamsungActivity): HealthSnapshot {
-    val hcDays = hc.days.associateBy { it.date }
-    val samsungDays = samsung.days.associateBy { it.date }
-    val dates = (hcDays.keys + samsungDays.keys).sortedBy { it.toEpochDay() }
-    val days = dates.mapNotNull { date ->
-        val s = samsungDays[date]
-        val h = hcDays[date]
-        when {
-            s == null -> h
-            h == null -> s
-            else -> s.copy(
-                distanceMeters = s.distanceMeters ?: h.distanceMeters,
-                activeKilocalories = s.activeKilocalories ?: h.activeKilocalories,
-                sources = h.sources + s.sources,
-                healthConnectSteps = h.healthConnectSteps ?: h.steps,
-            )
-        }
-    }
-    return hc.copy(days = days, sessions = mergeSessions(samsung.sessions, hc.sessions))
 }

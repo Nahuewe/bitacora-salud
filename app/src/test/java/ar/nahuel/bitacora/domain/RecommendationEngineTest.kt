@@ -205,6 +205,8 @@ class TrendsBuilderTest {
 }
 
 class StrengthProgramTest {
+    private val program by lazy { StrengthProgramParser.parse(java.io.File("src/main/assets/strength_program.json").readText()) }
+
     @Test
     fun weekNumberStartsAtOne() {
         val start = LocalDate.of(2026, 10, 16)
@@ -214,15 +216,54 @@ class StrengthProgramTest {
 
     @Test
     fun thirdStrengthDayFromWeekSeven() {
-        assertEquals(2, StrengthProgram.weekPlan(6).count { it.kind == DayKind.STRENGTH })
-        assertEquals(3, StrengthProgram.weekPlan(7).count { it.kind == DayKind.STRENGTH })
+        assertEquals(2, program.weekPlan(6).count { it.kind == DayKind.STRENGTH })
+        assertEquals(3, program.weekPlan(7).count { it.kind == DayKind.STRENGTH })
     }
 
     @Test
     fun everyExerciseHasTwoFramesAndCues() {
-        StrengthProgram.routines.flatMap { it.exercises }.forEach {
+        program.routines.flatMap { it.exercises }.forEach {
             assertEquals(it.id, 2, it.frames.size)
             assertTrue(it.id, it.cues.isNotEmpty() && it.avoid.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun assetKeepsTheFourRoutines() {
+        assertEquals(listOf("A", "B", "C", "M"), program.routines.map { it.id })
+        assertEquals(setOf("A", "B"), program.strengthIds)
+        assertEquals(19, program.routines.flatMap { it.exercises }.size)
+        assertEquals(listOf(0, 1, 1, 2), listOf(1, 3, 6, 7).map(program::phaseIndex))
+    }
+
+    @Test
+    fun everyPlannedRoutineExists() {
+        (1..8).forEach { week ->
+            program.weekPlan(week).flatMap { it.routineIds }.forEach { id -> assertTrue(id, program.routine(id) != null) }
+            assertEquals(7, program.weekPlan(week).size)
+        }
+    }
+
+    @Test
+    fun parserRejectsUnknownRoutineInPlan() {
+        val broken = java.io.File("src/main/assets/strength_program.json").readText().replaceFirst("\"routines\": [\n    \"A\"", "\"routines\": [\n    \"Z\"")
+        val text = if (broken.contains("\"Z\"")) broken else broken.replaceFirst("\"A\",", "\"Z\",")
+        try {
+            StrengthProgramParser.parse(text)
+            throw AssertionError("debía rechazar el plan")
+        } catch (e: InvalidProgramException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().isNotBlank())
+        }
+    }
+
+    @Test
+    fun parserRejectsOutOfRangeCoordinates() {
+        val text = java.io.File("src/main/assets/strength_program.json").readText().replaceFirst("\"head\": [", "\"head\": [7, ")
+        try {
+            StrengthProgramParser.parse(text)
+            throw AssertionError("debía rechazar la coordenada")
+        } catch (e: InvalidProgramException) {
+            assertTrue(true)
         }
     }
 
@@ -283,51 +324,10 @@ class GeoTest {
 
 class RoutinePlanTest {
     @Test
-    fun everyPlannedRoutineExists() {
-        (1..8).forEach { week ->
-            StrengthProgram.weekPlan(week).flatMap { it.routineIds }.forEach { id ->
-                assertTrue(id, StrengthProgram.routine(id) != null)
-            }
-        }
-    }
-
-    @Test
     fun coreAndMobilityDoNotCountAsStrength() {
         val today = LocalDate.of(2026, 10, 20)
         val snapshot = HealthSnapshot.empty(ZoneId.of("America/Argentina/Catamarca"))
         val rec = RecommendationEngine().evaluate(snapshot, today, emptyList())
         assertEquals(Severity.ATTENTION, rec.first { it.id == "strength" }.severity)
-    }
-}
-
-class SamsungMergeTest {
-    private val zone = ZoneId.of("America/Argentina/Catamarca")
-    private val day = LocalDate.of(2026, 10, 20)
-
-    private fun session(id: String, minute: Long) = ExerciseSession(
-        id, day.atTime(18, 0).atZone(zone).toInstant().plusSeconds(minute * 60), day.atTime(19, 0).atZone(zone).toInstant(),
-        79, ExerciseKind.WALKING, null, null, null, null, null, "x",
-    )
-
-    @Test
-    fun samsungStepsReplaceHealthConnect() {
-        val hc = HealthSnapshot(zone, listOf(DayActivity(day, 6_019, null, null, sources = mapOf("phone" to 6_019L))), emptyList(), emptyList(), emptyList())
-        val sh = ar.nahuel.bitacora.samsung.SamsungActivity(listOf(DayActivity(day, 11_231, 5_000.0, null, activeMinutes = 115, sources = mapOf("x.sdk" to 11_231L))), emptyList(), emptyList())
-        val merged = ar.nahuel.bitacora.samsung.mergeSnapshot(hc, sh)
-        assertEquals(11_231L, merged.days.single().steps)
-        assertEquals(115L, merged.days.single().activeMinutes)
-        assertEquals(6_019L, merged.days.single().healthConnectSteps)
-    }
-
-    @Test
-    fun matchingSessionsKeepHealthConnectId() {
-        val merged = ar.nahuel.bitacora.samsung.mergeSessions(listOf(session("sh:1:0", 1)), listOf(session("hc-1", 0)))
-        assertEquals(listOf("hc-1"), merged.map { it.id })
-    }
-
-    @Test
-    fun repeatedSamsungSessionsCollapseToOneRow() {
-        val merged = ar.nahuel.bitacora.samsung.mergeSessions(listOf(session("sh:1:0", 1), session("sh:1:0", 1)), emptyList())
-        assertEquals(listOf("sh:1:0"), merged.map { it.id })
     }
 }

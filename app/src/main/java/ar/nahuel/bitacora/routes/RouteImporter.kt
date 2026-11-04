@@ -59,14 +59,30 @@ class RouteImporter(private val context: Context, private val json: Json) {
     private fun parse(file: DocumentFile): Route? {
         if (file.length() > MAX_BYTES) return null
         val text = context.contentResolver.openInputStream(file.uri)?.use { it.readBytes().decodeToString() } ?: return null
+        return RouteFileParser.parse(file.name.orEmpty(), text, json)
+    }
+
+    private companion object {
+        const val SUFFIX = "location_data.json"
+        const val MAX_DEPTH = 6
+        const val MAX_FILES = 5_000
+        const val MAX_BYTES = 20L * 1024 * 1024
+    }
+}
+
+object RouteFileParser {
+
+    private const val MIN_POINTS = 5
+
+    fun parse(fileName: String, text: String, json: Json): Route? {
         val items = when (val element = json.parseToJsonElement(text)) {
             is JsonArray -> element
             is JsonObject -> element.values.firstOrNull { it is JsonArray } as? JsonArray ?: return null
             else -> return null
         }
-        val samples = items.mapNotNull { item -> sample(item) }.sortedBy { it.timeMs }
+        val samples = items.mapNotNull(::sample).sortedBy { it.timeMs }
         if (samples.size < MIN_POINTS) return null
-        val id = file.name.orEmpty().substringBefore('.')
+        val id = fileName.substringAfterLast('/').substringBefore('.')
         return Route(
             id = id.ifBlank { samples.first().timeMs.toString() },
             start = Instant.ofEpochMilli(samples.first().timeMs),
@@ -82,13 +98,5 @@ class RouteImporter(private val context: Context, private val json: Json) {
         val lon = obj["longitude"]?.jsonPrimitive?.doubleOrNull ?: return null
         val time = (obj["start_time"] ?: obj["time"] ?: obj["timestamp"])?.jsonPrimitive?.longOrNull ?: return null
         return if (Geo.isValid(lat, lon)) RoutePoint(time, lat, lon) else null
-    }
-
-    private companion object {
-        const val SUFFIX = "location_data.json"
-        const val MAX_DEPTH = 6
-        const val MAX_FILES = 5_000
-        const val MAX_BYTES = 20L * 1024 * 1024
-        const val MIN_POINTS = 5
     }
 }

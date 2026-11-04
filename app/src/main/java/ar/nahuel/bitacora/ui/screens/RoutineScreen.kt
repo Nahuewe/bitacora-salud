@@ -53,7 +53,17 @@ import java.time.temporal.TemporalAdjusters
 fun RoutineScreen(routine: RoutineUi, today: LocalDate, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
     val ink = LocalInk.current
     var open by rememberSaveable { mutableStateOf<String?>(null) }
-    val phase = StrengthProgram.phases[StrengthProgram.phaseIndex(routine.week)]
+    val program = routine.program
+    if (program == null) {
+        Text(
+            routine.programError ?: "Cargando la rutina…",
+            style = Type.body,
+            color = if (routine.programError != null) ink.signal else ink.inkSoft,
+            modifier = modifier.padding(20.dp),
+        )
+        return
+    }
+    val phase = program.phases[program.phaseIndex(routine.week)]
     val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val weekEntries = routine.entries.filter { it.date >= monday && it.date <= today }
 
@@ -67,7 +77,7 @@ fun RoutineScreen(routine: RoutineUi, today: LocalDate, onToggle: (String) -> Un
                 Spacer(Modifier.height(6.dp))
                 Rule(thickness = 3.dp, strong = true)
                 Text(
-                    weekSummary(routine.week, weekEntries) + " " + phase.rule,
+                    weekSummary(program, routine.week, weekEntries) + " " + phase.rule,
                     style = Type.body,
                     color = ink.ink,
                     modifier = Modifier.padding(top = 14.dp),
@@ -76,24 +86,24 @@ fun RoutineScreen(routine: RoutineUi, today: LocalDate, onToggle: (String) -> Un
         }
 
         item(key = "plan-head") { SectionHeader("La semana", phase.weeks.lowercase()) }
-        items(StrengthProgram.weekPlan(routine.week), key = { "plan-${it.day}" }) { day ->
-            PlanRow(day, monday.plusDays(day.day.value - 1L), today, weekEntries)
+        items(program.weekPlan(routine.week), key = { "plan-${it.day}" }) { day ->
+            PlanRow(program, day, monday.plusDays(day.day.value - 1L), today, weekEntries)
         }
 
         item(key = "warmup") {
             SectionHeader("Antes de cada sesión", "5–7 min")
             Column(Modifier.padding(top = 10.dp)) {
-                StrengthProgram.warmUp.forEachIndexed { i, step -> NumberedLine(i + 1, step) }
+                program.warmUp.forEachIndexed { i, step -> NumberedLine(i + 1, step) }
             }
         }
 
-        StrengthProgram.routines.forEach { r ->
+        program.routines.forEach { r ->
             routineSection(r, today, routine.entries, open, onOpen = { id -> open = if (open == id) null else id }, onToggle = onToggle)
         }
 
         item(key = "rules") {
             SectionHeader("Cómo progresar")
-            StrengthProgram.phases.forEach { p ->
+            program.phases.forEach { p ->
                 Column(Modifier.padding(vertical = 10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(p.name, style = Type.noteTitle, color = if (p == phase) ink.ink else ink.inkSoft, modifier = Modifier.weight(1f))
@@ -103,7 +113,7 @@ fun RoutineScreen(routine: RoutineUi, today: LocalDate, onToggle: (String) -> Un
                 }
                 Rule()
             }
-            Text(StrengthProgram.EFFORT_RULE, style = Type.body, color = ink.ink, modifier = Modifier.padding(top = 14.dp))
+            Text(program.effortRule, style = Type.body, color = ink.ink, modifier = Modifier.padding(top = 14.dp))
         }
         item(key = "end") { Spacer(Modifier.height(32.dp)) }
     }
@@ -146,7 +156,7 @@ private fun LazyListScope.routineSection(
 }
 
 @Composable
-private fun PlanRow(day: PlanDay, date: LocalDate, today: LocalDate, weekEntries: List<RoutineEntry>) {
+private fun PlanRow(program: StrengthProgram, day: PlanDay, date: LocalDate, today: LocalDate, weekEntries: List<RoutineEntry>) {
     val ink = LocalInk.current
     val isToday = date == today
     val doneIds = weekEntries.filter { it.date == date }.map { it.routineId }.toSet()
@@ -155,7 +165,7 @@ private fun PlanRow(day: PlanDay, date: LocalDate, today: LocalDate, weekEntries
     val status = when {
         planned.isNotEmpty() && doneCount == planned.size -> "hecho"
         doneCount > 0 -> "$doneCount de ${planned.size}"
-        planned.any { it in StrengthProgram.strengthIds } && date.isBefore(today) -> "pendiente"
+        planned.any { it in program.strengthIds } && date.isBefore(today) -> "pendiente"
         isToday -> "hoy"
         else -> ""
     }
@@ -176,7 +186,7 @@ private fun PlanRow(day: PlanDay, date: LocalDate, today: LocalDate, weekEntries
                 Text(day.detail, style = Type.small, color = ink.inkSoft)
                 if (planned.isNotEmpty()) {
                     Text(
-                        planned.mapNotNull { StrengthProgram.routine(it)?.name }.joinToString(" · "),
+                        planned.mapNotNull { program.routine(it)?.name }.joinToString(" · "),
                         style = Type.figureSmall,
                         color = ink.inkSoft,
                     )
@@ -281,10 +291,10 @@ private fun DetailBlock(title: String, lines: List<String>, warn: Boolean = fals
     }
 }
 
-private fun weekSummary(week: Int, entries: List<RoutineEntry>): String {
-    val plan = StrengthProgram.weekPlan(week)
+private fun weekSummary(program: StrengthProgram, week: Int, entries: List<RoutineEntry>): String {
+    val plan = program.weekPlan(week)
     fun planned(id: String) = plan.count { id in it.routineIds }
     fun done(ids: Set<String>) = entries.count { it.routineId in ids }
-    val strengthPlanned = plan.count { day -> day.routineIds.any { it in StrengthProgram.strengthIds } }
-    return "Esta semana: fuerza ${done(StrengthProgram.strengthIds)} de $strengthPlanned · core ${done(setOf("C"))} de ${planned("C")} · movilidad ${done(setOf("M"))} de ${planned("M")}."
+    val strengthPlanned = plan.count { day -> day.routineIds.any { it in program.strengthIds } }
+    return "Esta semana: fuerza ${done(program.strengthIds)} de $strengthPlanned · core ${done(setOf("C"))} de ${planned("C")} · movilidad ${done(setOf("M"))} de ${planned("M")}."
 }

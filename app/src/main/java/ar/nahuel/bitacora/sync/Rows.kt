@@ -23,6 +23,7 @@ data class ExerciseRow(
     @SerialName("max_hr") val maxHeartRate: Long?,
     @SerialName("kcal") val kilocalories: Double?,
     @SerialName("source_app") val sourceApp: String,
+    @SerialName("deleted_at") val deletedAt: String? = null,
 )
 
 @Serializable
@@ -45,6 +46,7 @@ data class SleepRow(
     @SerialName("light_min") val lightMinutes: Long,
     @SerialName("awake_min") val awakeMinutes: Long,
     @SerialName("avg_hr") val avgHeartRate: Long?,
+    @SerialName("deleted_at") val deletedAt: String? = null,
 )
 
 @Serializable
@@ -52,6 +54,7 @@ data class WeightRow(
     @SerialName("hc_id") val hcId: String,
     @SerialName("measured_at") val measuredAt: String,
     @SerialName("weight_kg") val weightKg: Double,
+    @SerialName("deleted_at") val deletedAt: String? = null,
 )
 
 @Serializable
@@ -112,3 +115,9 @@ data class StrengthRow(
     @SerialName("day") val day: String,
     @SerialName("routine_id") val routineId: String,
 )
+
+@Serializable
+data class LiveIdRow(@SerialName("hc_id") val hcId: String)
+
+@Serializable
+data class DeletedAtPatch(@SerialName("deleted_at") val deletedAt: String)

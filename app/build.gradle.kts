@@ -48,6 +48,14 @@ android {
         }
     }
 
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+        xmlReport = true
+        htmlReport = true
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -80,6 +88,10 @@ kotlin {
     }
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2025.07.00")
     implementation(composeBom)
@@ -100,6 +112,12 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    constraints {
+        implementation("com.google.guava:guava:33.8.0-android") {
+            because("la 31.1-android que llega de forma transitiva tiene vulnerabilidades conocidas")
+        }
+    }
 
     testImplementation("junit:junit:4.13.2")
 }

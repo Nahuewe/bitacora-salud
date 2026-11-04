@@ -37,6 +37,11 @@ import ar.nahuel.bitacora.domain.Severity
 import ar.nahuel.bitacora.domain.Thresholds
 import ar.nahuel.bitacora.domain.WeekRow
 import ar.nahuel.bitacora.samsung.SamsungStatus
+import ar.nahuel.bitacora.ui.Freshness
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import ar.nahuel.bitacora.ui.components.SamsungNotice
+import ar.nahuel.bitacora.ui.components.SamsungNotices
 import ar.nahuel.bitacora.ui.ContentState
 import ar.nahuel.bitacora.ui.components.LedgerButton
 import ar.nahuel.bitacora.ui.components.Rule
@@ -53,15 +58,18 @@ private val clock = DateTimeFormatter.ofPattern("HH:mm")
 fun SheetScreen(
     content: ContentState,
     today: LocalDate,
+    freshness: Freshness?,
     onRetry: () -> Unit,
     samsung: SamsungStatus?,
+    samsungNote: String?,
     onConnectSamsung: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
         item { Masthead(today) }
-        if (samsung != null && samsung != SamsungStatus.Ready) {
-            item(key = "samsung") { SamsungNote(samsung, onConnectSamsung) }
+        freshness?.takeIf { it.updating || it.stale }?.let { item(key = "freshness") { FreshnessLine(it) } }
+        if (SamsungNotices.needsAttention(samsung, samsungNote)) {
+            item(key = "samsung") { SamsungNotice(samsung, samsungNote, onConnectSamsung) }
         }
         when (content) {
             ContentState.Loading -> loadingRows()
@@ -74,19 +82,20 @@ fun SheetScreen(
 }
 
 @Composable
-private fun SamsungNote(status: SamsungStatus, onConnect: () -> Unit) {
+private fun FreshnessLine(freshness: Freshness) {
     val ink = LocalInk.current
-    val text = when (status) {
-        SamsungStatus.NeedsPermission -> "Conectá Samsung Health para leer los pasos y caminatas del reloj."
-        is SamsungStatus.NeedsResolution -> status.message
-        is SamsungStatus.Unavailable -> status.message
-        is SamsungStatus.Paused -> status.message
-        SamsungStatus.Ready -> ""
+    val time = freshness.savedAt.atZone(java.time.ZoneId.systemDefault()).format(clock)
+    val text = if (freshness.stale) {
+        "Datos de las $time. No se pudieron actualizar; reintento al volver a abrir."
+    } else {
+        "Datos de las $time · actualizando…"
     }
-    Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = Type.small, color = ink.signal, modifier = Modifier.weight(1f).padding(end = 12.dp))
-        if (status !is SamsungStatus.Unavailable) LedgerButton(if (status is SamsungStatus.Paused) "Reintentar" else "Conectar", onConnect)
-    }
+    Text(
+        text,
+        style = Type.small,
+        color = if (freshness.stale) ink.signal else ink.inkSoft,
+        modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 @Composable

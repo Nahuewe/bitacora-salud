@@ -15,17 +15,12 @@ object SamsungFaults {
 
     private val faults = MutableSharedFlow<Throwable>(extraBufferCapacity = 4)
 
-    @Volatile
-    var last: Throwable? = null
-        private set
-
     fun isSamsung(error: Throwable): Boolean = generateSequence(error) { it.cause }.any { cause ->
         cause.message.orEmpty().let { it.contains(SDK_PACKAGE) || it.contains(SDK_PATH) } ||
             cause.stackTrace.any { it.className.startsWith(SDK_PACKAGE) }
     }
 
     fun report(error: Throwable) {
-        last = error
         faults.tryEmit(error)
     }
 

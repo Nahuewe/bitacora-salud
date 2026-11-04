@@ -108,6 +108,25 @@ class SupabaseApi(
         return execute(request) { it.body?.string().orEmpty() }
     }
 
+    suspend fun selectWhere(table: String, columns: String, filters: List<Pair<String, String>>, session: AuthSession): String {
+        val builder = "$base/rest/v1/$table".toHttpUrl().newBuilder().addQueryParameter("select", columns)
+        filters.forEach { (column, expression) -> builder.addQueryParameter(column, expression) }
+        val request = authorized(session).url(builder.build()).get().build()
+        return execute(request) { it.body?.string().orEmpty() }
+    }
+
+    suspend fun updateWhere(table: String, filters: List<Pair<String, String>>, bodyJson: String, session: AuthSession) {
+        require(filters.isNotEmpty()) { "update sin filtros" }
+        val builder = "$base/rest/v1/$table".toHttpUrl().newBuilder()
+        filters.forEach { (column, expression) -> builder.addQueryParameter(column, expression) }
+        val request = authorized(session)
+            .url(builder.build())
+            .header("Prefer", "return=minimal")
+            .patch(bodyJson.toRequestBody(JSON))
+            .build()
+        execute(request) { }
+    }
+
     suspend fun delete(table: String, filters: Map<String, String>, session: AuthSession) {
         val builder = "$base/rest/v1/$table".toHttpUrl().newBuilder()
         require(filters.isNotEmpty()) { "delete sin filtros" }
@@ -181,4 +200,11 @@ class SupabaseApi(
             .callTimeout(60, TimeUnit.SECONDS)
             .build()
     }
+}
+
+object PostgrestFilter {
+    fun inList(values: Collection<String>): String =
+        values.joinToString(",", prefix = "in.(", postfix = ")") { value ->
+            "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        }
 }
