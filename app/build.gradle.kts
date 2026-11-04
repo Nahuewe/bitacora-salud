@@ -113,5 +113,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
+    constraints {
+        implementation("com.google.guava:guava:33.8.0-android") {
+            because("la 31.1-android que llega de forma transitiva tiene vulnerabilidades conocidas")
+        }
+    }
+
     testImplementation("junit:junit:4.13.2")
 }
