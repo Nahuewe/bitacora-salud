@@ -210,7 +210,7 @@ jobs:
   release:
     name: Publicar versión
     needs: [build, secrets, sast, dependencies]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/build/'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -228,6 +228,11 @@ jobs:
             echo "::warning::Sin keystore de firma no se publica la versión."
             exit 0
           fi
-          gh release create "v1.0.${{ github.run_number }}" "bitacora-${{ github.run_number }}.apk" \
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            tag="v1.0.${{ github.run_number }}"; kind="--latest"; title="Bitácora 1.0.${{ github.run_number }}"
+          else
+            tag="v1.0.${{ github.run_number }}-${GITHUB_REF_NAME#build/}"; kind="--prerelease"; title="Bitácora 1.0.${{ github.run_number }} (prueba ${GITHUB_REF_NAME#build/})"
+          fi
+          gh release create "$tag" "bitacora-${{ github.run_number }}.apk" \
             --repo "${{ github.repository }}" --target "${{ github.sha }}" \
-            --title "Bitácora 1.0.${{ github.run_number }}" --notes "Compilada desde ${{ github.sha }} con tests, lint y escaneos de seguridad aprobados." --latest
+            --title "$title" --notes "Compilada desde ${{ github.sha }} con tests, lint y escaneos de seguridad aprobados." $kind
