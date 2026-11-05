@@ -113,7 +113,7 @@ dependencies {
     implementation("androidx.databinding:databinding-runtime:9.5.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     constraints {
         implementation("com.google.guava:guava:33.8.0-android") {
