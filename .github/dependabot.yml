@@ -10,6 +10,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "com.android.application"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "com.squareup.okhttp3:okhttp"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
